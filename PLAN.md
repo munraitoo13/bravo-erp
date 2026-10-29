@@ -1,9 +1,9 @@
 # `PLAN.md` — Living Execution Roadmap & Task Tracker
 
 > **Current Session Handoff Notes:**
-> - **Active Phase:** Phase 5 — Frontend Application (Next.js App Router, PT-BR UI, Strict TypeScript)
-> - **Completed in Current Turn:** Phase 4 (Steps 4.1–4.4) completed and verified with 0 errors across `ruff check`, `ruff format --check`, `mypy --strict` (66 source files), `pytest` (24 unit & integration tests passing, including full end-to-end Quote Approval -> Work Order Serial Vault & Completion -> Outbox Relay -> WeasyPrint PDF + QR Code + SHA-256 verification and 11-month Warranty Cron), `tsc --noEmit`, and `eslint`.
-> - **Next Immediate Action:** Phase 5 — Implement Frontend typed API client (`api-client.ts`), Auth/Demo Persona Switcher (`auth-context.tsx`), `/login`, `/dashboard` (with 11-Month Warranty Radar), `/sizing` wizard, `/catalog`, `/quotes`, `/public/quotes/[token]`, `/public/verify/[sha256]`, and `/work-orders` mobile-first technician view.
+> - **Active Phase:** Completed (All Phases 0–5 Verified & Marked `[x]`)
+> - **Completed in Current Turn:** Phase 5 (Steps 5.1–5.6) completed and verified with 0 errors across `pnpm --dir frontend tsc --noEmit`, `pnpm --dir frontend lint`, `pnpm --dir frontend build`, `ruff check`, `ruff format --check`, `mypy --strict` (66 source files), and `pytest` (24 unit & integration tests passing).
+> - **Next Immediate Action:** Ready for live evaluation (`docker compose -f docker-compose.dev.yml up --build --watch` and open `http://localhost:3000/login`).
 
 ---
 
@@ -194,27 +194,28 @@ uv run --project backend pytest backend/tests -v
 ## Phase 5: Frontend Application (Next.js App Router, PT-BR UI, Strict TypeScript)
 
 ### Tasks
-- [ ] **5.1: Typed API Client, RFC 7807 Error Parser & Auth/Demo Context (`frontend/src/lib/`)**
+- [x] **5.1: Typed API Client, RFC 7807 Error Parser & Auth/Demo Context (`frontend/src/lib/`)**
   - Implement `api-client.ts` with `X-Correlation-ID` generation, JWT header injection, and RFC 7807 `application/problem+json` error parsing.
   - Implement `auth-context.tsx` supporting instant 1-Click Recruiter Demo persona switching (`Proprietário (Owner)`, `Técnico de Campo`, `Link Público do Cliente`) and `"Restaurar Dados da Demo"`.
   - Build `/login` page with prominent 1-Click Recruiter Demo cards alongside standard login.
-- [ ] **5.2: Executive Dashboard & 11-Month Warranty Radar (`/dashboard`)**
+- [x] **5.2: Executive Dashboard & 11-Month Warranty Radar (`/dashboard`)**
   - Build role-aware dashboard shell (`(dashboard)/layout.tsx`) with top Demo Persona Switcher banner.
   - Render financial KPIs (Total Quoted, Approved Revenue, Average Margin — visible only to `OWNER`), active Work Orders, and the **Radar de Renovação de Garantia (11 Meses)** card.
-- [ ] **5.3: Interactive CCTV Sizing Wizard (`/sizing`) & Catalog Manager (`/catalog`)**
-  - Build `/sizing` interactive calculator: multi-group camera builder (Analog/IP, Resolution, FPS, Codec, Retention Days, Cable Type & Meters), live calculation of Required HDD TB, Intelbras MHDX hybrid channel utilization bar, 12V/PoE electrical load, voltage drop alerts, auto-derived BOM table, and 1-click `"Criar Orçamento a partir do Dimensionamento"`.
+- [x] **5.3: Interactive CCTV Sizing Wizard (`/sizing`), Proposal Builder (`/quotes/new`) & Catalog Manager (`/catalog`)**
+  - Build `/sizing` and `/quotes/new` interactive calculator & proposal builder: multi-group camera builder (Analog/IP, Resolution, FPS, Codec, Retention Days, Cable Type & Meters), live calculation of Required HDD TB, Intelbras MHDX hybrid channel utilization bar, 12V/PoE electrical load, voltage drop alerts, auto-derived BOM table, and 1-click `"Criar Orçamento a partir do Dimensionamento"`.
   - Build `/catalog` table displaying Intelbras/WD Purple/Condutti SKUs, physical vs. reserved stock badges, and cost/margin columns conditionally rendered for `OWNER`.
-- [ ] **5.4: Quotes Management (`/quotes`), Public Proposal Portal (`/public/quotes/[token]`) & SHA-256 Verifier (`/public/verify/[sha256]`)**
-  - Build `/quotes` list and detail view with state transition actions (`Enviar ao Cliente`, `Cancelar`), audit log timeline, and direct link to the public client portal.
-  - Build `/public/quotes/[token]` (zero-login client view) displaying the PT-BR commercial proposal, PDF download button, and 1-Click `"Aprovar Proposta Comercial"` button handling `409 Conflict` stock errors gracefully.
-  - Build `/public/verify/[sha256]` displaying cryptographic authenticity confirmation, SHA-256 digest, customer, approval IP/timestamp, and registered hardware serial warranties.
-- [ ] **5.5: Mobile-First Technician Work Order & Serial Number Vault (`/work-orders`)**
+- [x] **5.4: Quotes Management (`/quotes`), Public Proposal Portal (`/p/[token]` & `/public/quotes/[token]`) & SHA-256 Verifier (`/verify/[hash]` & `/public/verify/[sha256]`)**
+  - Build `/quotes` list, `/quotes/[id]` detail view, and `/quotes/new` proposal builder with state transition actions (`Enviar ao Cliente`, `Aprovar`, `Cancelar`), audit log timeline, and direct link to the public client portal.
+  - Build `/p/[token]` and `/public/quotes/[token]` (zero-login client view) displaying the PT-BR commercial proposal, PDF download button, and 1-Click `"Aprovar Proposta Comercial"` button handling `409 Conflict` stock errors gracefully.
+  - Build `/verify/[hash]` and `/public/verify/[sha256]` displaying cryptographic authenticity confirmation, SHA-256 digest, customer, approval IP/timestamp, and registered hardware serial warranties.
+- [x] **5.5: Mobile-First Technician Work Order (`/work-orders/[id]`) & Equipment Warranty Vault (`/vault`)**
   - Build `/work-orders` list and `/work-orders/[id]` field execution screen:
     - Interactive checklist toggles (`checklist_json`).
     - Intelbras Cloud P2P ID input and installation photo upload (`POST /photos`).
-    - **Cofre de Números de Série (Serial Vault):** form to register DVR, WD Purple HDD, and Camera Serial Numbers mapped to channels (`BNC-01`, `SATA-01`, etc.).
+    - **Cofre de Números de Série (Serial Vault):** form with S/N scanner/input to register DVR, WD Purple HDD, and Camera Serial Numbers mapped to channels (`BNC-01`, `SATA-01`, etc.).
     - `"Concluir Ordem de Serviço"` button enforcing all guards before transitioning to `COMPLETED`.
-- [ ] **5.6: Final End-to-End Quality Gate & Documentation Polish**
+  - Build `/vault` Warranty & Equipment Serial Vault view listing all registered hardware serials across work orders, distributor vs. client warranty dates, 11-month maintenance radar, and 1-click SHA-256 certificate verification links.
+- [x] **5.6: Final End-to-End Quality Gate & Documentation Polish**
   - Run full backend + frontend linters, strict typecheckers, unit/integration test suites, and production Next.js build verification.
   - Update `PLAN.md` all checkboxes to `[x]` and finalize `README.md`.
 

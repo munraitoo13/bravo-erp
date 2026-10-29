@@ -109,8 +109,11 @@ bravo-erp/
         │   │   ├── dashboard/          # KPIs, 11-month warranty radar, active quotes/work orders
         │   │   ├── sizing/             # Interactive CCTV Sizing Wizard
         │   │   ├── catalog/            # Equipment Catalog & Inventory (Owner sees cost/margin)
-        │   │   ├── quotes/             # Quote management, state transitions, audit logs
-        │   │   └── work-orders/        # Mobile-first technician view, checklist, photos, S/N vault
+        │   │   ├── quotes/             # Quote management, /quotes/new builder, state transitions, audit logs
+        │   │   ├── work-orders/        # Mobile-first technician view (/work-orders & /work-orders/[id])
+        │   │   └── vault/              # Warranty & Equipment Serial Vault (/vault)
+        │   ├── p/[token]/              # Short-link Client Proposal Acceptance Portal (alias for /public/quotes/[token])
+        │   ├── verify/[hash]/          # Short-link Public SHA-256 PDF & Warranty verifier (alias for /public/verify/[sha256])
         │   └── public/
         │       ├── quotes/[token]/     # Client Proposal Acceptance Portal (no login required)
         │       └── verify/[sha256]/    # Public SHA-256 PDF & Warranty authenticity verifier
