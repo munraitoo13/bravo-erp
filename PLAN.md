@@ -1,9 +1,9 @@
 # `PLAN.md` — Living Execution Roadmap & Task Tracker
 
 > **Current Session Handoff Notes:**
-> - **Active Phase:** Completed (All Phases 0–5 Verified & Marked `[x]`)
-> - **Completed in Current Turn:** Phase 5 (Steps 5.1–5.6) completed and verified with 0 errors across `pnpm --dir frontend tsc --noEmit`, `pnpm --dir frontend lint`, `pnpm --dir frontend build`, `ruff check`, `ruff format --check`, `mypy --strict` (66 source files), and `pytest` (24 unit & integration tests passing).
-> - **Next Immediate Action:** Ready for live evaluation (`docker compose -f docker-compose.dev.yml up --build --watch` and open `http://localhost:3000/login`).
+> - **Active Phase:** Phase 6: Post-Audit Hardening, Security & Production Readiness
+> - **Completed in Current Turn:** Milestones 6.1 (Living Documentation Synchronization) and 6.2 (P0 Security Vulnerabilities & Demo Blocker Remediation) completed and verified across all Quality Gates (ruff check/format, mypy --strict, pytest Testcontainers, tsc, eslint, docker-compose config).
+> - **Next Immediate Action:** Ready to proceed with Milestone 6.3 (Domain Invariants, RFC 7807 Catch-All & Zero-Ignore Typing) and Milestone 6.4 (UX & Recruiter Demo Polish).
 
 ---
 
@@ -47,7 +47,7 @@ uv add --project backend fastapi "uvicorn[standard]" "sqlalchemy[asyncio]" async
 uv add --project backend --dev pytest pytest-asyncio pytest-cov "testcontainers[postgres,redis]" ruff mypy aiosqlite
 
 # Async Alembic initialization
-uv run --project backend alembic init -t async backend/alembic
+uv run --project backend alembic init -t async backend/migrations
 
 # Frontend CLI initialization & dependencies
 pnpm create next-app@latest frontend --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --use-pnpm --yes
@@ -228,4 +228,46 @@ uv run --project backend pytest backend/tests -v
 pnpm --dir frontend tsc --noEmit
 pnpm --dir frontend lint
 pnpm --dir frontend build
+```
+
+---
+
+## Phase 6: Post-Audit Hardening, Security & Production Readiness
+
+### Tasks
+- [x] **6.1: Governance Documentation & Living Architecture Sync**
+  - Document S3 storage key prefix validation rule (`photos/{org_id}/{work_order_id}/`), upload size limits (10 MB), and MIME allowlist in `SPEC.md`.
+  - Document cross-entity cancellation invariant (canceling an `APPROVED` quote cascades cancellation to child `WorkOrder`) in `SPEC.md`.
+  - Fix documentation drift: reconcile `migrations/` paths and `UserRole.PUBLIC_CLIENT` in `SPEC.md`.
+  - Update `DECISIONS.md` (ADR-005) with hybrid immediate `.kiq()` trigger + `taskiq scheduler` fallback and per-event savepoint isolation (`session.begin_nested()`).
+- [x] **6.2: Remediate All P0 Vulnerabilities & Demo Blockers**
+  - [x] **P0-1:** Fix standard login form in `frontend/src/app/(auth)/login/page.tsx` default values, placeholders, and hint box credentials to match `demo_seeder.py` (`carlos.mendes@bravoseguranca.com.br`, `rafael.silva@bravoseguranca.com.br`, `BravoDemo@2026`, `bravo-seguranca-demo`).
+  - [x] **P0-2:** Harden photo upload and prevent S3 cross-tenant traversal in `WorkOrderService.upload_installation_photo` and `work_orders/router.py`. Reject supplied `photo_key` not prefixed with `photos/{ctx.organization_id}/{work_order.id}/` or containing `..`. Restrict uploads to `image/jpeg`, `image/png`, `image/webp` with 10 MB limit.
+  - [x] **P0-3:** Add `scheduler` container to `docker-compose.dev.yml` running `uv run taskiq scheduler src.worker:scheduler`. Trigger `await poll_outbox_events_task.kiq()` immediately after successful database commits in `QuoteService` (`send_quote`, `_execute_atomic_approval`) and `WorkOrderService` (`complete_work_order`).
+  - [x] **P0-4:** Harden Outbox Relay against S3 failures in `outbox_relay.py`: wrap each event in atomic savepoint (`async with session.begin_nested():`), broaden exception handler to capture all base exceptions (including botocore exceptions), increment `retry_count`, apply exponential `next_retry_at`, and recover stale `PROCESSING` events.
+  - [x] **P0-5:** Seed real MinIO assets in demo tenant (`demo_seeder.py`): generate and upload real WeasyPrint PDF payloads for Quote #1 and Quote #3, and seed valid sample JPEG bytes for Work Orders #2 and #3 when storage is reachable.
+- [ ] **6.3: Domain Invariants, RFC 7807 Catch-All & Zero-Ignore Typing (P1)**
+  - Cascade WorkOrder cancellation when an `APPROVED` quote is canceled; block WorkOrder execution on canceled quotes.
+  - Require `WorkOrderStatus.IN_FIELD` for field execution and validate that registered serials match quote hardware.
+  - Expose `POST /api/v1/quotes/{id}/revise` endpoint matching `QuoteStateMachine`.
+  - Register global RFC 7807 catch-all exception handler for Starlette `HTTPException` and unhandled exceptions.
+  - Eliminate `# type: ignore` comments in schemas and cache Argon2id password hash in `demo_seeder.py`.
+- [ ] **6.4: UX & Recruiter Demo Polish (P2)**
+  - Render clickable preview links for `installation_photo_urls` in `work-orders/[id]/page.tsx`.
+  - Add 1-Click Persona Switcher controls to `PublicQuotePortal` with seamless persona hand-off.
+  - Fix `"Valor Venta"` typo to `"Valor de Venda:"` in `dashboard/page.tsx`.
+  - Eliminate N+1 S3 client instantiation in list endpoints.
+- [ ] **6.5: Edge-Case Test Expansion & Production Deployment Assets**
+  - Add integration tests for S3 path validation, outbox relay S3 failure/retry, and cross-entity cancellation.
+  - Add GitHub Actions CI workflow (`.github/workflows/ci.yml`).
+
+### Phase 6 Verification Gate
+```bash
+uv run --project backend ruff check backend/src backend/tests
+uv run --project backend ruff format --check backend/src backend/tests
+uv run --project backend mypy --config-file backend/pyproject.toml backend/src backend/tests --strict
+uv run --project backend pytest backend/tests -v
+pnpm --dir frontend tsc --noEmit
+pnpm --dir frontend lint
+docker compose -f docker-compose.dev.yml config
 ```

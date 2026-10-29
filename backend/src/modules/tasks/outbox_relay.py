@@ -84,6 +84,31 @@ async def process_pending_outbox_events(
 ) -> OutboxRelaySummary:
     """Poll PENDING outbox_events with SELECT ... FOR UPDATE SKIP LOCKED and process them."""
     effective_now = now or datetime.now(UTC)
+
+    # 1. Recover stale PROCESSING events older than 5 minutes (e.g. abrupt worker crash/restart)
+    stale_threshold = effective_now - timedelta(minutes=5)
+    stale_stmt = (
+        select(OutboxEvent)
+        .where(
+            OutboxEvent.status == OutboxStatus.PROCESSING,
+            OutboxEvent.created_at <= stale_threshold,
+        )
+        .with_for_update(skip_locked=True)
+        .execution_options(populate_existing=True)
+    )
+    stale_events = (await session.scalars(stale_stmt)).all()
+    for stale in stale_events:
+        stale.status = OutboxStatus.PENDING
+        stale.next_retry_at = effective_now
+        logger.warning(
+            "recovered_stale_outbox_event",
+            outbox_event_id=str(stale.id),
+            event_type=stale.event_type,
+        )
+    if stale_events:
+        await session.flush()
+
+    # 2. Poll PENDING events ready for dispatch
     stmt = (
         select(OutboxEvent)
         .where(
@@ -109,11 +134,12 @@ async def process_pending_outbox_events(
         await session.flush()
 
         try:
-            await _dispatch_outbox_event(
-                session,
-                event,
-                storage_client=storage_client,
-            )
+            async with session.begin_nested():
+                await _dispatch_outbox_event(
+                    session,
+                    event,
+                    storage_client=storage_client,
+                )
             event.status = OutboxStatus.PROCESSED
             processed_ids.append(event.id)
             logger.info(
@@ -122,7 +148,7 @@ async def process_pending_outbox_events(
                 event_type=event.event_type,
                 organization_id=str(event.organization_id),
             )
-        except (DomainError, ValueError, KeyError, OSError) as exc:
+        except Exception as exc:
             failed_count += 1
             event.retry_count += 1
             if event.retry_count >= MAX_OUTBOX_RETRIES:

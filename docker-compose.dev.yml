@@ -153,6 +153,40 @@ services:
         - action: rebuild
           path: ./backend/uv.lock
 
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: bravo-erp-scheduler
+    restart: unless-stopped
+    command: ["uv", "run", "taskiq", "scheduler", "src.worker:scheduler", "--fs-discover", "--reload", "--reload-dir", "/app/src"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      worker:
+        condition: service_started
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bravo}:${POSTGRES_PASSWORD:-bravo_dev_secret}@postgres:5432/${POSTGRES_DB:-bravo_erp}
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_secret}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-bravo-erp}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-bravo-erp-dev-super-secret-jwt-key-change-in-prod-2026}
+    volumes:
+      - ./backend/src:/app/src:rw
+      - ./backend/tests:/app/tests:rw
+      - ./backend/migrations:/app/migrations:rw
+      - /app/.venv
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend/pyproject.toml
+        - action: rebuild
+          path: ./backend/uv.lock
+
   frontend:
     build:
       context: ./frontend

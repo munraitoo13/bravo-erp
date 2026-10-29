@@ -51,9 +51,9 @@ export default function LoginPage(): React.JSX.Element {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "roberto.almeida@bravoseguranca.com.br",
-      password: "BravoDemo!2026",
-      organization_slug: "bravo-seguranca-eletronica",
+      email: "carlos.mendes@bravoseguranca.com.br",
+      password: "BravoDemo@2026",
+      organization_slug: "bravo-seguranca-demo",
     },
   });
 
@@ -138,7 +138,7 @@ export default function LoginPage(): React.JSX.Element {
                         1. Demo Proprietário / Gestor (Owner)
                       </CardTitle>
                       <CardDescription className="text-xs text-slate-400">
-                        Roberto Almeida • Bravo Segurança Eletrônica Ltda
+                        Carlos Eduardo Mendes • Bravo Segurança Eletrônica Ltda
                       </CardDescription>
                     </div>
                   </div>
@@ -183,7 +183,7 @@ export default function LoginPage(): React.JSX.Element {
                         2. Demo Técnico de Campo (Field Technician)
                       </CardTitle>
                       <CardDescription className="text-xs text-slate-400">
-                        Carlos Eduardo (Instalador) • Custos e margens ocultados no backend
+                        Rafael Oliveira Silva (Instalador) • Custos e margens ocultados no backend
                       </CardDescription>
                     </div>
                   </div>
@@ -317,7 +317,7 @@ export default function LoginPage(): React.JSX.Element {
                   <Input
                     id="organization_slug"
                     type="text"
-                    placeholder="bravo-seguranca-eletronica"
+                    placeholder="bravo-seguranca-demo"
                     {...register("organization_slug")}
                   />
                 </div>
@@ -338,14 +338,17 @@ export default function LoginPage(): React.JSX.Element {
                   </p>
                   <p>
                     <strong>Owner:</strong>{" "}
-                    <code>roberto.almeida@bravoseguranca.com.br</code>
+                    <code>carlos.mendes@bravoseguranca.com.br</code>
                   </p>
                   <p>
                     <strong>Técnico:</strong>{" "}
-                    <code>carlos.tecnico@bravoseguranca.com.br</code>
+                    <code>rafael.silva@bravoseguranca.com.br</code>
                   </p>
                   <p>
-                    <strong>Senha:</strong> <code>BravoDemo!2026</code>
+                    <strong>Senha:</strong> <code>BravoDemo@2026</code>
+                  </p>
+                  <p>
+                    <strong>Slug Org:</strong> <code>bravo-seguranca-demo</code>
                   </p>
                 </div>
               </form>

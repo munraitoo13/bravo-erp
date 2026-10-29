@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import async_session_factory
 from src.core.logging import configure_logging
 from src.core.security import UserRole, hash_password
+from src.core.storage import StorageClient
 from src.modules.catalog.models import CatalogCategory, CatalogItem
 from src.modules.catalog.schemas import validate_specs_for_category
 from src.modules.quotes.models import (
@@ -54,6 +55,24 @@ DEMO_COMPLETED_QUOTE_ID = UUID("0192d4a0-7c10-7000-8000-000000000103")
 DEMO_COMPLETED_QUOTE_PUBLIC_TOKEN = UUID("0192d4a0-7c10-7000-8000-000000000003")
 DEMO_COMPLETED_WORK_ORDER_ID = UUID("0192d4a0-7c10-7000-8000-000000000203")
 DEMO_COMPLETED_PDF_SHA256 = "a3f5c8e9d1b20476589a1c3e5f7b9d0e2a4c6e8f0b1d3f5a7c9e1b3d5f7a9c1e"
+
+_SAMPLE_JPEG_BYTES = (
+    b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00"
+    b"\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19"
+    b"\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.' \",#\x1c\x1c(7),01444\x1f'9=82<.342"
+    b"\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x00\xff\xda\x00\x08\x01\x01\x00\x00"
+    b"?\x00\xbf\x00\xff\xd9"
+)
+
+_CACHED_DEMO_PASSWORD_HASH: str | None = None
+
+
+def get_demo_password_hash() -> str:
+    """Return cached Argon2id password hash for DEMO_DEFAULT_PASSWORD."""
+    global _CACHED_DEMO_PASSWORD_HASH
+    if _CACHED_DEMO_PASSWORD_HASH is None:
+        _CACHED_DEMO_PASSWORD_HASH = hash_password(DEMO_DEFAULT_PASSWORD)
+    return _CACHED_DEMO_PASSWORD_HASH
 
 
 @dataclass(frozen=True)
@@ -687,6 +706,7 @@ async def seed_demo_tenant(
     session: AsyncSession,
     *,
     force_reset: bool = False,
+    storage_client: StorageClient | None = None,
 ) -> DemoSeedSummary:
     """Idempotently seed or reset the Demo Tenant with PT-BR catalog, quotes, and work orders."""
     existing_org = await session.scalar(
@@ -734,7 +754,7 @@ async def seed_demo_tenant(
         await session.flush()
 
     org_id = existing_org.id
-    password_hash = hash_password(DEMO_DEFAULT_PASSWORD)
+    password_hash = get_demo_password_hash()
 
     # Upsert Demo OWNER and TECHNICIAN users
     owner_user = await session.scalar(
@@ -1006,7 +1026,9 @@ async def seed_demo_tenant(
                 "checked_at": None,
             },
         ],
-        installation_photos_keys=["photos/demo/rack-mhdx-1104-instalado.jpg"],
+        installation_photos_keys=[
+            f"photos/{org_id}/{DEMO_ACTIVE_WORK_ORDER_ID}/rack-mhdx-1104-instalado.jpg"
+        ],
         cloud_p2p_id="ITB-P2P-994821BR",
         notes=(
             "3 de 4 câmeras já registradas no Cofre de Seriais. "
@@ -1123,8 +1145,8 @@ async def seed_demo_tenant(
             },
         ],
         installation_photos_keys=[
-            "photos/demo/clinica-sao-lucas-recepcao.jpg",
-            "photos/demo/clinica-sao-lucas-rack.jpg",
+            f"photos/{org_id}/{DEMO_COMPLETED_WORK_ORDER_ID}/clinica-sao-lucas-recepcao.jpg",
+            f"photos/{org_id}/{DEMO_COMPLETED_WORK_ORDER_ID}/clinica-sao-lucas-rack.jpg",
         ],
         cloud_p2p_id="ITB-P2P-771204BR",
         notes=(
@@ -1174,6 +1196,17 @@ async def seed_demo_tenant(
     )
 
     await session.flush()
+
+    await _seed_minio_assets_if_reachable(
+        session,
+        org_id=org_id,
+        quote_1_id=quote_1.id,
+        quote_3_id=quote_3.id,
+        wo_2_photos=wo_2.installation_photos_keys,
+        wo_3_photos=wo_3.installation_photos_keys,
+        storage_client=storage_client,
+    )
+
     logger.info(
         "demo_tenant_seeded",
         organization_id=str(org_id),
@@ -1189,6 +1222,41 @@ async def seed_demo_tenant(
         catalog_items_count=len(SEED_CATALOG_DEFINITIONS),
         quotes_count=3,
     )
+
+
+async def _seed_minio_assets_if_reachable(
+    session: AsyncSession,
+    *,
+    org_id: UUID,
+    quote_1_id: UUID,
+    quote_3_id: UUID,
+    wo_2_photos: list[str],
+    wo_3_photos: list[str],
+    storage_client: StorageClient | None = None,
+) -> None:
+    """Upload sample photo JPEGs and generate real WeasyPrint PDFs if storage is reachable."""
+    try:
+        storage = storage_client or StorageClient()
+        # 1. Upload sample photos for WO #2 and WO #3
+        for photo_key in [*wo_2_photos, *wo_3_photos]:
+            await storage.upload_bytes(
+                object_key=photo_key,
+                data=_SAMPLE_JPEG_BYTES,
+                content_type="image/jpeg",
+            )
+
+        # 2. Render real WeasyPrint PDFs for Quote #1 (SENT) and Quote #3 (COMPLETED)
+        from src.modules.tasks.pdf_generator import generate_and_store_quote_pdf
+
+        await generate_and_store_quote_pdf(session, quote_1_id, storage_client=storage)
+        await generate_and_store_quote_pdf(session, quote_3_id, storage_client=storage)
+        logger.info("demo_minio_assets_seeded_successfully", organization_id=str(org_id))
+    except Exception as exc:
+        logger.warning(
+            "demo_minio_assets_seeding_skipped_or_failed",
+            error=str(exc),
+            organization_id=str(org_id),
+        )
 
 
 async def _run_cli_seeder() -> None:

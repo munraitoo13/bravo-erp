@@ -27,7 +27,11 @@ from src.modules.work_orders.schemas import (
     WorkOrderScheduleRequest,
     WorkOrderStartRequest,
 )
-from src.modules.work_orders.service import WorkOrderService
+from src.modules.work_orders.service import (
+    ALLOWED_PHOTO_MIME_TYPES,
+    MAX_PHOTO_SIZE_BYTES,
+    WorkOrderService,
+)
 
 router = APIRouter(tags=["work_orders"])
 
@@ -67,9 +71,26 @@ async def _parse_photo_upload(
                 detail="Multipart upload must include a 'file' field.",
                 errors=[{"field": "file", "reason": "missing_multipart_file"}],
             )
-        file_bytes = await uploaded.read()
+        file_bytes = await uploaded.read(MAX_PHOTO_SIZE_BYTES + 1)
+        if len(file_bytes) > MAX_PHOTO_SIZE_BYTES:
+            raise DomainValidationError(
+                detail=(
+                    f"Uploaded photo exceeds maximum allowed limit of "
+                    f"{MAX_PHOTO_SIZE_BYTES} bytes (10MB)."
+                ),
+                errors=[{"field": "file", "reason": "photo_size_limit_exceeded"}],
+            )
         filename = uploaded.filename or "instalacao_cftv.jpg"
-        mime_type = uploaded.content_type or "image/jpeg"
+        mime_type = (uploaded.content_type or "image/jpeg").lower().split(";")[0].strip()
+        if mime_type not in ALLOWED_PHOTO_MIME_TYPES:
+            allowed = ", ".join(sorted(ALLOWED_PHOTO_MIME_TYPES))
+            raise DomainValidationError(
+                detail=(
+                    f"Unsupported photo content type '{uploaded.content_type}'. "
+                    f"Allowed types: {allowed}."
+                ),
+                errors=[{"field": "content_type", "reason": "unsupported_media_type"}],
+            )
         return filename, file_bytes, mime_type, None
 
     try:
@@ -80,6 +101,16 @@ async def _parse_photo_upload(
             detail="Invalid photo upload payload.",
             errors=[{"field": "body", "reason": "invalid_photo_json"}],
         ) from exc
+
+    normalized_mime = parsed.content_type.lower().split(";")[0].strip()
+    if normalized_mime not in ALLOWED_PHOTO_MIME_TYPES:
+        allowed = ", ".join(sorted(ALLOWED_PHOTO_MIME_TYPES))
+        raise DomainValidationError(
+            detail=(
+                f"Unsupported photo content type '{parsed.content_type}'. Allowed types: {allowed}."
+            ),
+            errors=[{"field": "content_type", "reason": "unsupported_media_type"}],
+        )
 
     if parsed.content_base64:
         try:
@@ -92,7 +123,16 @@ async def _parse_photo_upload(
     else:
         decoded_bytes = _DEFAULT_SAMPLE_JPEG_BYTES
 
-    return parsed.filename, decoded_bytes, parsed.content_type, parsed.photo_key
+    if len(decoded_bytes) > MAX_PHOTO_SIZE_BYTES:
+        raise DomainValidationError(
+            detail=(
+                f"Photo file size ({len(decoded_bytes)} bytes) exceeds the maximum allowed "
+                f"limit of {MAX_PHOTO_SIZE_BYTES} bytes (10MB)."
+            ),
+            errors=[{"field": "content_base64", "reason": "photo_size_limit_exceeded"}],
+        )
+
+    return parsed.filename, decoded_bytes, normalized_mime, parsed.photo_key
 
 
 @router.get(

@@ -105,9 +105,13 @@
     - **Idempotent Consumers:** Workers are designed to be idempotent—re-processing `QuoteApprovedEvent` simply overwrites the deterministic MinIO key `proposals/{org_id}/{quote_id}.pdf` and updates `pdf_sha256_hash`.
   - **Cons:**
     - Adds a polling interval (~1–2 seconds) before async side effects start, plus table maintenance for `outbox_events` (mitigated by a partial index `WHERE status = 'PENDING'`).
-  - **Implementation Nuance (Phase 4 — Cryptographic Preimage & `SKIP LOCKED`):**
+  - **Implementation Nuance (Phase 4 & Phase 6 — Cryptographic Preimage, `SKIP LOCKED` & Hybrid Dispatch):**
     - Because a PDF cannot contain its own final SHA-256 digest in plain text prior to hashing, the embedded QR Code encodes the canonical proposal/verification URL (`https://bravo-erp.dev/public/quotes/{public_token}` + quote metadata), WeasyPrint renders the final binary PDF, and `hashlib.sha256(pdf_bytes).hexdigest()` is persisted on `quotes.pdf_sha256_hash` (`UNIQUE CHAR(64)`). The public verifier (`GET /api/v1/verify/{pdf_sha256_hash}`) then validates document authenticity and live hardware warranty status against that digest.
     - `outbox_relay.py` and `warranty_cron.py` use `.with_for_update(skip_locked=True).execution_options(populate_existing=True)` so concurrent Taskiq worker processes can poll `outbox_events` and `work_orders` without blocking one another or double-processing events.
+    - **Hybrid Outbox Dispatch & Fault Isolation (Phase 6):**
+      - To eliminate polling delay while preserving the zero-loss transactional outbox guarantee, domain operations (`send_quote`, `approve_quote`, `complete_work_order`) trigger a non-blocking `await poll_outbox_events_task.kiq()` hint immediately *after* `await session.commit()`. If Redis or the immediate dispatch fails, the scheduled cron runner (`taskiq scheduler src.worker:scheduler`) automatically picks up pending events as a resilient fallback.
+      - Each event in `process_pending_outbox_events` is processed inside an atomic savepoint (`async with session.begin_nested():`) and catches all base exceptions (including `BotoCoreError` and `ClientError`). If S3/MinIO fails, only that specific event is marked for retry with exponential backoff (`next_retry_at = now + 2^retry_count * 15s`), preventing poison-pill crashes from rolling back other succeeded events in the batch.
+      - A stale-event recovery query automatically resets events stuck in `PROCESSING` status for over 5 minutes back to `PENDING` to gracefully recover from worker crashes or abrupt container restarts.
 
 ---
 

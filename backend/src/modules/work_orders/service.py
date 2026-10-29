@@ -27,7 +27,7 @@ from src.modules.quotes.models import (
     QuoteStatus,
 )
 from src.modules.quotes.schemas import CustomerResponse
-from src.modules.quotes.service import normalize_client_ip
+from src.modules.quotes.service import normalize_client_ip, trigger_outbox_poll_safely
 from src.modules.quotes.state_machine import QuoteStateMachine
 from src.modules.work_orders.models import InstalledSerial, WorkOrder, WorkOrderStatus
 from src.modules.work_orders.repository import WorkOrderRepository
@@ -52,6 +52,9 @@ from src.modules.work_orders.state_machine import (
 logger: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 _SAFE_FILENAME_RE = re.compile(r"[^a-zA-Z0-9._-]+")
+
+ALLOWED_PHOTO_MIME_TYPES: frozenset[str] = frozenset({"image/jpeg", "image/png", "image/webp"})
+MAX_PHOTO_SIZE_BYTES: int = 10 * 1024 * 1024  # 10 MB
 
 
 def _sanitize_filename(filename: str) -> str:
@@ -510,15 +513,46 @@ class WorkOrderService:
                 errors=[{"field": "file", "reason": "empty_photo_payload"}],
             )
 
-        safe_name = _sanitize_filename(filename)
-        generated_prefix = generate_uuid7().hex[:12]
-        default_key = f"photos/{ctx.organization_id}/{work_order.id}/{generated_prefix}-{safe_name}"
-        object_key = explicit_key.strip() if explicit_key and explicit_key.strip() else default_key
+        if len(content) > MAX_PHOTO_SIZE_BYTES:
+            raise DomainValidationError(
+                detail=(
+                    f"Photo file size ({len(content)} bytes) exceeds the maximum allowed "
+                    f"limit of {MAX_PHOTO_SIZE_BYTES} bytes (10MB)."
+                ),
+                errors=[{"field": "file", "reason": "photo_size_limit_exceeded"}],
+            )
+
+        normalized_mime = content_type.lower().split(";")[0].strip()
+        if normalized_mime not in ALLOWED_PHOTO_MIME_TYPES:
+            allowed = ", ".join(sorted(ALLOWED_PHOTO_MIME_TYPES))
+            raise DomainValidationError(
+                detail=(
+                    f"Unsupported photo content type '{content_type}'. Allowed types: {allowed}."
+                ),
+                errors=[{"field": "content_type", "reason": "unsupported_media_type"}],
+            )
+
+        expected_prefix = f"photos/{ctx.organization_id}/{work_order.id}/"
+        if explicit_key is not None and explicit_key.strip():
+            stripped_key = explicit_key.strip()
+            if ".." in stripped_key or not stripped_key.startswith(expected_prefix):
+                raise DomainValidationError(
+                    detail=(
+                        f"Invalid photo_key '{explicit_key}'. Key must not contain '..' "
+                        f"and must begin with '{expected_prefix}'."
+                    ),
+                    errors=[{"field": "photo_key", "reason": "invalid_tenant_photo_prefix"}],
+                )
+            object_key = stripped_key
+        else:
+            safe_name = _sanitize_filename(filename)
+            generated_prefix = generate_uuid7().hex[:12]
+            object_key = f"{expected_prefix}{generated_prefix}-{safe_name}"
 
         await self._storage.upload_bytes(
             object_key=object_key,
             data=content,
-            content_type=content_type,
+            content_type=normalized_mime,
         )
 
         updated_keys = list(work_order.installation_photos_keys)
@@ -811,6 +845,7 @@ class WorkOrderService:
         )
         await self._repo.add_outbox_event(outbox_event)
         await self._session.commit()
+        await trigger_outbox_poll_safely()
 
         reloaded = await self._repo.get_work_order_by_id(ctx.organization_id, work_order.id)
         if reloaded is None:  # pragma: no cover

@@ -58,6 +58,7 @@ dev = [
 target-version = "py312"
 line-length = 100
 src = ["src", "tests"]
+exclude = ["migrations"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "N", "RUF"]
@@ -70,6 +71,7 @@ known-first-party = ["src"]
 "tests/**/*.py" = ["S101", "S105", "S106"]
 "src/seed/**/*.py" = ["S105", "S106"]
 "src/core/config.py" = ["S105"]
+"migrations/**/*.py" = ["E501", "UP007", "UP035", "I001"]
 
 [tool.mypy]
 python_version = "3.12"

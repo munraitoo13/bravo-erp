@@ -169,7 +169,7 @@ erDiagram
         varchar email
         varchar password_hash
         varchar full_name
-        user_role_enum role "OWNER | TECHNICIAN"
+        user_role_enum role "OWNER | TECHNICIAN | PUBLIC_CLIENT"
         boolean is_active
         timestamptz created_at
     }
@@ -308,7 +308,7 @@ erDiagram
 | `email` | `VARCHAR(255)` | `NOT NULL` | — | Unique per tenant (`uq_users_org_email`) |
 | `password_hash` | `TEXT` | `NOT NULL` | — | Argon2id password hash |
 | `full_name` | `VARCHAR(160)` | `NOT NULL` | — | Full display name |
-| `role` | `ENUM('OWNER', 'TECHNICIAN')` | `NOT NULL` | — | RBAC Role (`user_role_enum`) |
+| `role` | `ENUM('OWNER', 'TECHNICIAN', 'PUBLIC_CLIENT')` | `NOT NULL` | — | RBAC Role (`user_role_enum`) |
 | `is_active` | `BOOLEAN` | `NOT NULL` | `true` | Soft disable flag |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL` | `now()` | UTC creation timestamp |
 - **Indexes:** `ix_users_organization_id` (`organization_id`), `uq_users_org_email` (`organization_id`, `email` UNIQUE).
@@ -388,7 +388,7 @@ erDiagram
 | `organization_id` | `UUID` | `NOT NULL` | — | `FK -> organizations.id ON DELETE CASCADE` |
 | `quote_id` | `UUID` | `NOT NULL` | — | `UNIQUE FK -> quotes.id ON DELETE RESTRICT` |
 | `assigned_technician_id` | `UUID` | `Nullable` | `NULL` | `FK -> users.id ON DELETE SET NULL` |
-| `status` | `ENUM` | `NOT NULL` | `'PENDING'` | `PENDING`, `SCHEDULED`, `IN_FIELD`, `COMPLETED` |
+| `status` | `ENUM` | `NOT NULL` | `'PENDING'` | `PENDING`, `SCHEDULED`, `IN_FIELD`, `COMPLETED`, `CANCELED` |
 | `checklist_json` | `JSONB` | `NOT NULL` | `'[]'::jsonb` | Array of `{step_id, label_pt_br, is_checked, checked_at}` |
 | `installation_photos_keys` | `JSONB` | `NOT NULL` | `'[]'::jsonb` | Array of MinIO object keys (`string[]`) |
 | `cloud_p2p_id` | `TEXT` | `Nullable` | `NULL` | Intelbras Cloud / Sim Next QR Code ID |
@@ -691,9 +691,12 @@ stateDiagram-v2
         [*] --> PENDING : Created atomically on Quote APPROVED
         PENDING --> SCHEDULED : schedule_technician()
         PENDING --> IN_FIELD : start_work_order() [Quote -> IN_PROGRESS]
+        PENDING --> CANCELED : cancel_work_order() [Cascaded on Quote CANCELED]
         SCHEDULED --> IN_FIELD : start_work_order() [Quote -> IN_PROGRESS]
+        SCHEDULED --> CANCELED : cancel_work_order() [Cascaded on Quote CANCELED]
         IN_FIELD --> COMPLETED : complete_work_order() [All checklist + >=1 photo + All Serials -> Quote COMPLETED]
         COMPLETED --> [*]
+        CANCELED --> [*]
     }
 ```
 
@@ -749,7 +752,23 @@ When a technician submits `POST /api/v1/work-orders/{id}/complete`:
 6. **Warranty Calculation:**
    Set `work_order.completed_at = now()`, `work_order.warranty_expires_at = today + 365 days`, `work_order.status = WorkOrderStatus.COMPLETED`, `quote.status = QuoteStatus.COMPLETED`, and emit `WorkOrderCompletedEvent` in `outbox_events` (to regenerate the PDF including the **Certificate of Warranty & Serial Numbers**).
 
-### 4.4. Strict RBAC Response Serialization (Cost & Margin Redaction)
+### 4.4. Cross-Entity Cancellation Invariant & Inventory Release
+When an `APPROVED` quote is canceled via `POST /api/v1/quotes/{id}/cancel`:
+1. The quote is locked with `SELECT ... FOR UPDATE` and its status is transitioned from `QuoteStatus.APPROVED -> QuoteStatus.CANCELED`.
+2. All reserved inventory quantities on associated `CatalogItem` records are released (`reserved_quantity -= item.quantity`).
+3. If an associated `WorkOrder` exists in `PENDING` or `SCHEDULED` status, it is atomically transitioned to `WorkOrderStatus.CANCELED`. If the work order is already `IN_FIELD` or `COMPLETED`, cancellation of the parent quote is rejected with `InvalidStateTransitionError` (`422 Problem+JSON`).
+4. Any subsequent attempt to start, complete, or mutate a `CANCELED` work order is blocked with `InvalidStateTransitionError` (`422 Problem+JSON`).
+
+### 4.5. Multi-Tenant S3 Storage Security & Installation Photo Upload Rules
+All uploads to MinIO/S3 (e.g., via `POST /api/v1/work-orders/{id}/photos`) MUST obey the following strict multi-tenant isolation and security constraints:
+1. **Tenant & Entity Path Scoping:** Any client-supplied `photo_key` MUST be strictly validated against path traversal (`..`) and MUST strictly begin with the deterministic tenant prefix:
+   `photos/{ctx.organization_id}/{work_order.id}/`
+   If an explicit `photo_key` does not match this prefix, or contains relative segments, the request is rejected immediately with `DomainValidationError` (`422 Problem+JSON`).
+2. **File Size Limit:** The maximum allowed file size for photo uploads is **10 MB** (10,485,760 bytes). Payloads exceeding this threshold are rejected with `DomainValidationError` (`422 Problem+JSON`).
+3. **MIME Allowlist:** Only `image/jpeg`, `image/png`, and `image/webp` Content-Types are accepted. All other extensions and MIME types are rejected.
+4. **Presigned URL Generation:** Presigned download URLs are strictly generated on-the-fly and scoped to verified keys belonging to the authenticated tenant.
+
+### 4.6. Strict RBAC Response Serialization (Cost & Margin Redaction)
 To guarantee that field technicians (`TECHNICIAN`) and external customers (`PUBLIC_CLIENT`) can never inspect internal company cost prices or profit margins—even via browser DevTools network inspection—the API uses **separate Pydantic v2 output schemas**:
 
 | Field | `QuoteOwnerResponse` (`OWNER`) | `QuoteTechnicianResponse` (`TECHNICIAN`) | `QuotePublicResponse` (`PUBLIC_CLIENT`) |

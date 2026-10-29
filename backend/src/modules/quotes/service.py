@@ -93,6 +93,16 @@ def compute_margin_percent(total_cost_cents: int, total_sale_cents: int) -> Deci
     return margin.quantize(Decimal("0.01"))
 
 
+async def trigger_outbox_poll_safely() -> None:
+    """Trigger immediate non-blocking outbox processing via Taskiq with graceful fallback."""
+    try:
+        from src.modules.tasks.outbox_relay import poll_outbox_events_task
+
+        await poll_outbox_events_task.kiq()
+    except Exception as exc:
+        logger.warning("failed_to_dispatch_outbox_kiq_trigger", error=str(exc))
+
+
 def serialize_quote_for_public(
     quote: Quote,
     *,
@@ -523,6 +533,7 @@ class QuoteService:
         )
         await self._repo.add_outbox_event(outbox_event)
         await self._session.commit()
+        await trigger_outbox_poll_safely()
 
         reloaded = await self._repo.get_quote_by_id(ctx.organization_id, quote.id)
         if reloaded is None:  # pragma: no cover
@@ -653,6 +664,7 @@ class QuoteService:
         )
         await self._repo.add_outbox_event(outbox_event)
         await self._session.commit()
+        await trigger_outbox_poll_safely()
 
         logger.info(
             "quote_approved",
