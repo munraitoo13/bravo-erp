@@ -1,241 +1,231 @@
 <div align="center">
 
-# `bravo-erp`
+# bravo-erp
 
-### **Production-Grade Modular B2B SaaS & Technical ERP for Electronic Security & CCTV Operations (Intelbras / Hybrid Ecosystems)**
+**Multi-Tenant B2B Technical ERP for Electronic Security & CCTV Operations**
 
-[![Quality Gate](https://img.shields.io/badge/Quality_Gate-Passing-10b981?style=for-the-badge&logo=githubactions&logoColor=white)](#7-zero-friction-quick-start-run-in-1-command)
-[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-Async_100%25-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![SQLAlchemy 2.0](https://img.shields.io/badge/SQLAlchemy-2.0_Async-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white)](https://www.sqlalchemy.org/)
-[![Next.js App Router](https://img.shields.io/badge/Next.js-App_Router-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
-[![TypeScript Strict](https://img.shields.io/badge/TypeScript-Strict_Mode-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Docker Compose Watch](https://img.shields.io/badge/Docker-Compose_Watch-2496ED?style=for-the-badge&logo=docker&logoColor=white)](./docker-compose.dev.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![CI Status](https://img.shields.io/badge/Quality_Gate-Passing-10b981?style=flat-square)](#quality-gate--testing)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Async-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![SQLAlchemy 2.0](https://img.shields.io/badge/SQLAlchemy-2.0_Async-D71F00?style=flat-square)](https://www.sqlalchemy.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-App_Router-000000?style=flat-square&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=flat-square)](https://opensource.org/licenses/MIT)
 
-[**Architecture Highlights**](#3-core-architectural-highlights-the-recruiter-hook) •
-[**CCTV Sizing Math**](#4-domain-engine-deep-dive-cctv-sizing--intelbras-logic) •
-[**Tech Stack**](#5-tech-stack--tooling-matrix) •
-[**Quick Start**](#7-zero-friction-quick-start-run-in-1-command) •
-[**Spec & ADRs**](#8-developer--agent-governance-spec-driven-engineering)
+[Overview](#overview) •
+[System Architecture](#system-architecture) •
+[Domain Engine](#domain-engine-cctv-sizing--topology) •
+[Tech Stack](#tech-stack) •
+[Getting Started](#getting-started) •
+[Documentation](#documentation)
 
 </div>
 
 ---
 
-## 1. Executive Summary
+## Overview
 
-**`bravo-erp`** is a multi-tenant B2B SaaS and Technical ERP purpose-built for **Electronic Security and CCTV (CFTV) Installation Companies** operating across hybrid analog (**Intelbras Multi-HD MHDX**) and IP (**Intelbras NVD / PoE**) hardware ecosystems.
+`bravo-erp` is a multi-tenant B2B technical ERP built for electronic security and CCTV (CFTV) installation companies operating across hybrid analog (**Intelbras Multi-HD MHDX**) and IP (**Intelbras NVD / PoE**) ecosystems.
 
-This repository is engineered with two simultaneous goals:
-
-1. **Real-World Field Operations:** Replaces error-prone spreadsheets in CCTV integration firms with a deterministic **CCTV Engineering & Sizing Engine** (computing surveillance HDD storage, hybrid BNC-to-IP channel allocation, 12V DC / PoE electrical loads, copper voltage drop, and automatic accessory Bill of Materials derivation), commercial proposal lifecycle management, mobile-first technician work orders, and a **Serial Number & Warranty Vault** with automated 11-month preventive maintenance upsell alerts.
-2. **Mid-to-Senior / Staff Engineering Showcase:** Built to withstand deep architectural scrutiny during technical interviews. Rather than a basic CRUD wrapper, `bravo-erp` demonstrates **Modular Monolith** boundaries, 100% non-blocking async I/O (`FastAPI` + `SQLAlchemy 2.0 AsyncSession` + `Taskiq`), deadlock-free pessimistic database locking (`SELECT ... FOR UPDATE`), a **Transactional Outbox** (`outbox_events`), **RFC 7807 (`application/problem+json`)** error contracts, end-to-end `X-Correlation-ID` distributed tracing, and a **Zero-Friction 1-Click Recruiter Demo Mode**.
+Field integrators routinely deal with undersized surveillance hard drives, incompatible hybrid DVR channel allocations, excessive voltage drops on long coaxial/UTP cable runs, and untracked equipment serial numbers during warranty claims. `bravo-erp` replaces manual spreadsheets with an automated engineering sizing engine, commercial quote management, mobile field work orders, and a hardware serial number and warranty tracker.
 
 ---
 
-## 2. Core Architectural Highlights (The "Recruiter Hook")
+## System Architecture
 
-### 🏛️ Modular Monolith with Pure Domain Isolation
-The backend (`backend/src/modules/`) is partitioned into cohesive bounded contexts (`tenants`, `catalog`, `sizing`, `quotes`, `work_orders`, `tasks`). Cross-module state changes execute either inside a single explicit SQLAlchemy Unit of Work (preserving ACID invariants across tables without distributed 2PC overhead) or asynchronously via the Transactional Outbox. The engineering core (`sizing/domain/`) is **100% pure Python** with zero ORM or HTTP imports, enabling microsecond execution and 100% unit test branch coverage.
+### Modular Monolith Boundaries
+The backend (`backend/src/modules/`) is organized into bounded contexts (`tenants`, `catalog`, `sizing`, `quotes`, `work_orders`, `tasks`). Cross-module mutations execute within a single SQLAlchemy `AsyncSession` Unit of Work to preserve ACID guarantees across tables, while asynchronous side effects (such as PDF rendering and background notifications) are dispatched through a transactional outbox. The engineering core (`sizing/domain/`) is written in pure Python with zero database or HTTP imports.
 
-### 🔐 Explicit Multi-Tenancy & Schema-Level RBAC Cost Redaction
-- **Explicit Tenant Context DI:** Every tenant-scoped table is prefixed with composite B-Tree indexes starting on `organization_id`. FastAPI injects an immutable `CurrentTenantContext` into every service and repository call, ensuring tenant isolation is explicit in query plans (`EXPLAIN ANALYZE`) and immune to connection-pool session bleed ([ADR-002](./DECISIONS.md#adr-002-application-level-multi-tenancy-via-explicit-organization_id--fastapi-currenttenantcontext-dependency-injection-over-postgresql-rls)).
-- **Zero-Leakage RBAC Serialization:** Field technicians (`TECHNICIAN`) and external customers (`PUBLIC_CLIENT`) must never see equipment cost prices (`cost_price_cents`) or profit margins (`margin_percent`)—even if they inspect raw JSON payloads in browser DevTools. Instead of relying on frontend UI hiding, the backend enforces **role-segregated Pydantic v2 response schemas** (`QuoteOwnerResponse` vs. `QuoteTechnicianResponse` vs. `QuotePublicResponse`) that physically strip cost and margin attributes before serialization.
+### Multi-Tenancy & Role-Based Field Redaction
+- **Tenant Isolation:** Every tenant-scoped table is indexed with `organization_id` as the leading column. FastAPI injects a `CurrentTenantContext` dependency into service and repository calls, enforcing explicit `.where(Model.organization_id == ctx.organization_id)` filters across all queries ([ADR-002](./DECISIONS.md)).
+- **Schema-Level Cost & Margin Redaction:** Field technicians (`TECHNICIAN`) and external clients (`PUBLIC_CLIENT`) must not have access to wholesale equipment costs (`cost_price_cents`) or profit margins (`margin_percent`). Rather than hiding fields only in the UI, the API uses separate Pydantic v2 response models (`QuoteOwnerResponse`, `QuoteTechnicianResponse`, `QuotePublicResponse`) that strip sensitive financial fields before serialization.
 
-### 🔒 Concurrency-Safe Inventory Locking (Deadlock-Free `SELECT ... FOR UPDATE`)
-When two customers simultaneously click **"Approve Proposal"** on public quotes competing for the last physical unit of an `Intelbras MHDX 3116` DVR in stock, naive read-then-write checks suffer from **TOCTOU (Time-of-Check to Time-of-Use)** race conditions.
-- During `POST /api/v1/public/quotes/{public_token}/approve`, `bravo-erp` sorts all requested `catalog_item_id` UUIDs in **strict ascending order** before issuing `SELECT ... FOR UPDATE`:
-  ```python
-  sorted_item_ids: list[UUID] = sorted({item.catalog_item_id for item in physical_items})
-  stmt = (
-      select(CatalogItem)
-      .where(
-          CatalogItem.organization_id == quote.organization_id,
-          CatalogItem.id.in_(sorted_item_ids),
-      )
-      .order_by(CatalogItem.id.asc())
-      .with_for_update()
-  )
-  ```
-- **Why sort UUIDs ascending?** Deterministic lock ordering guarantees a global Directed Acyclic Graph (DAG) of row lock acquisition across concurrent transactions, mathematically eliminating PostgreSQL deadlocks while serializing competing approvals ([ADR-004](./DECISIONS.md#adr-004-pessimistic-locking-select--for-update-with-deterministic-uuid-ordering-for-inventory-reservation-on-quote-approval)).
+### Pessimistic Inventory Locking (`SELECT ... FOR UPDATE`)
+When a customer approves a quote via its public link (`POST /api/v1/public/quotes/{public_token}/approve`), the system locks the required catalog rows inside an atomic transaction to prevent race conditions when two quotes compete for the last unit in stock.
 
-### 📬 Transactional Outbox Pattern (`outbox_events`)
-To avoid holding database row locks during CPU-heavy PDF rendering and to prevent the **Dual-Write Problem** between PostgreSQL and Redis, domain mutations (`Quote`, `CatalogItem`, `WorkOrder`, `AuditLog`) insert an `OutboxEvent(status="PENDING")` row inside the **exact same ACID transaction** ([ADR-005](./DECISIONS.md#adr-005-transactional-outbox-pattern-outbox_events-for-reliable-async-side-effects-pdf-generation--work-order-notifications)). A Taskiq background relay polls `outbox_events` using `SELECT ... FOR UPDATE SKIP LOCKED` and dispatches downstream workers with at-least-once delivery guarantees.
+To prevent PostgreSQL deadlocks when concurrent transactions lock overlapping items in different orders, target `catalog_item_id` UUIDs are sorted in ascending order prior to acquiring the row locks ([ADR-004](./DECISIONS.md)):
 
-### 📄 Async Cryptographic PDF Pipeline & RFC 7807 Observability
-- **WeasyPrint + SHA-256 + QR Verification:** Taskiq workers asynchronously render Portuguese (`pt-BR`) Technical Proposals and Warranty Certificates into PDF via **WeasyPrint**, compute a cryptographic **SHA-256 hex digest** of the binary artifact, embed a verification **QR Code**, and upload to **MinIO (S3)**. Anyone scanning the QR code lands on `/public/verify/{sha256}` to verify document authenticity and hardware serial warranties.
-- **RFC 7807 Problem Details & Correlation-ID:** Generic `HTTPException` calls are forbidden in domain/service layers. Typed `DomainError` exceptions map automatically to **RFC 7807 (`application/problem+json`)** responses carrying the request's `X-Correlation-ID`, which propagates from incoming HTTP headers into `structlog` JSON logs and `outbox_events` worker payloads.
+```python
+sorted_item_ids: list[UUID] = sorted({item.catalog_item_id for item in physical_items})
+stmt = (
+    select(CatalogItem)
+    .where(
+        CatalogItem.organization_id == quote.organization_id,
+        CatalogItem.id.in_(sorted_item_ids),
+    )
+    .order_by(CatalogItem.id.asc())
+    .with_for_update()
+)
+```
 
----
+### Transactional Outbox & Async PDF Pipeline
+Domain state transitions (`Quote`, `CatalogItem`, `WorkOrder`, `AuditLog`) write an `OutboxEvent(status="PENDING")` record within the same database transaction ([ADR-005](./DECISIONS.md)). A Taskiq background worker polls `outbox_events` using `SELECT ... FOR UPDATE SKIP LOCKED`, renders the commercial proposal and warranty certificate into a PDF via **WeasyPrint**, computes its **SHA-256** integrity hash, embeds a verification **QR Code**, and uploads the document to **MinIO (S3)**.
 
-## 3. System Architecture Diagram
+### Error Handling & Observability
+All domain and validation errors return **RFC 7807 (`application/problem+json`)** responses. Every HTTP request extracts or generates an `X-Correlation-ID` header, binds it to `structlog` context variables, and forwards it into `outbox_events` payloads so background workers log under the same request trace ID.
 
 ```mermaid
 flowchart TB
-    subgraph ClientLayer["Client & Presentation Layer (Next.js App Router)"]
-        UI_Owner["Owner Dashboard & Sizing Wizard<br/>(Full Cost & Margin Visibility)"]
-        UI_Tech["Mobile-First Technician View<br/>(Checklist, Photos & Serial Vault)"]
-        UI_Public["Public Client Portal<br/>(Token Proposal & SHA-256 Verifier)"]
+    subgraph Client["Next.js App Router (Frontend)"]
+        UI_Owner["Owner Workspace<br/>(Sizing, Quotes, Margins & Catalog)"]
+        UI_Tech["Technician Workspace<br/>(Field Checklists, Photos & Serials)"]
+        UI_Public["Public Client Portal<br/>(Proposal Approval & Hash Verification)"]
     end
 
-    subgraph APILayer["FastAPI Modular Monolith (100% Async I/O)"]
+    subgraph API["FastAPI Modular Monolith"]
         MW["CorrelationIdMiddleware + RFC 7807 Handler"]
-        AuthDI["CurrentTenantContext & RBAC Guard"]
-        subgraph Modules["Domain Bounded Contexts (backend/src/modules/)"]
-            M_Tenants["tenants<br/>(Auth & 1-Click Demo)"]
-            M_Catalog["catalog<br/>(SKUs & Stock)"]
-            M_Sizing["sizing<br/>(Pure Math Engine)"]
-            M_Quotes["quotes<br/>(State Machine & UoW)"]
-            M_WO["work_orders<br/>(Serial Vault & Warranty)"]
+        AuthDI["CurrentTenantContext & RBAC Dependencies"]
+        subgraph Modules["Domain Modules (backend/src/modules/)"]
+            M_Tenants["tenants"]
+            M_Catalog["catalog"]
+            M_Sizing["sizing"]
+            M_Quotes["quotes"]
+            M_WO["work_orders"]
         end
     end
 
-    subgraph DataLayer["Persistence & Messaging Infrastructure"]
-        PG[("PostgreSQL 17<br/>(ACID + SELECT FOR UPDATE<br/>+ outbox_events)")]
-        RD[("Redis 7<br/>(Taskiq Async Broker)")]
-        MinIO[("MinIO S3 Storage<br/>(PDFs & Field Photos)")]
+    subgraph Storage["Data & Messaging Layer"]
+        PG[("PostgreSQL 17<br/>(ACID + SELECT FOR UPDATE)")]
+        RD[("Redis 7<br/>(Taskiq Broker)")]
+        MinIO[("MinIO S3<br/>(PDFs & Field Photos)")]
     end
 
-    subgraph WorkerLayer["Taskiq Async Worker & Scheduler Pool"]
+    subgraph Workers["Taskiq Async Workers"]
         Relay["Outbox Relay<br/>(FOR UPDATE SKIP LOCKED)"]
-        PDFWorker["WeasyPrint PDF Engine<br/>(HTML -> PDF + SHA-256 + QR)"]
-        CronWorker["Scheduled Cron Jobs<br/>(11-Month Warranty Radar & Demo Reset)"]
+        PDFWorker["WeasyPrint PDF Worker<br/>(PDF + SHA-256 + QR Code)"]
+        CronWorker["Scheduled Jobs<br/>(11-Month Warranty Scan)"]
     end
 
-    UI_Owner & UI_Tech & UI_Public -->|"HTTPS + X-Correlation-ID"| MW
+    UI_Owner & UI_Tech & UI_Public --> MW
     MW --> AuthDI --> Modules
-    M_Quotes & M_Catalog & M_WO & M_Tenants -->|"SQLAlchemy 2.0 AsyncSession"| PG
-    PG -->|"Poll PENDING events"| Relay
-    Relay -->|"Dispatch Async Task"| RD
+    M_Quotes & M_Catalog & M_WO & M_Tenants --> PG
+    PG --> Relay
+    Relay --> RD
     RD --> PDFWorker & CronWorker
-    PDFWorker -->|"Upload Signed PDF"| MinIO
-    PDFWorker -->|"Update pdf_sha256_hash"| PG
-    M_WO -->|"Presigned Photo Upload"| MinIO
+    PDFWorker --> MinIO
+    PDFWorker --> PG
+    M_WO --> MinIO
 ```
 
 ---
 
-## 4. Domain Engine Deep Dive (CCTV Sizing & Intelbras Logic)
+## Domain Engine: CCTV Sizing & Topology
 
-The `sizing` module (`backend/src/modules/sizing/domain/`) implements deterministic engineering formulas tailored to real-world Brazilian CCTV installations:
+The `sizing` module (`backend/src/modules/sizing/domain/`) computes hardware requirements from project parameters:
 
-### 1. Surveillance Storage Calculation (`H.264` / `H.265` / `H.265+` Smart Codec)
-For each camera group with bitrate $\text{Bitrate}_{\text{kbps}}$ (resolved from our deterministic Resolution $\times$ FPS $\times$ Codec lookup table in [`SPEC.md`](./SPEC.md#31-storage-calculation-formula--bitrate-lookup-table)), daily recording hours $H \in [1, 24]$, and retention days $D$:
+### 1. Surveillance Storage Calculation
+For each camera group with stream bitrate (looked up by resolution `720p`–`4K`, FPS `15`/`20`/`30`, and codec `H.264`/`H.265`/`H.265+` Smart Codec), daily recording hours, and retention days:
 
-$$\text{GB}_{\text{day}} = \frac{\text{Bitrate (kbps)} \times 3600 \times H}{8 \times 1024 \times 1024}$$
+```text
+Daily Storage per Camera (GB) = (Bitrate_kbps * 3600 * Hours_per_day) / (8 * 1024 * 1024)
+Total Required Storage (GB)   = Sum(Group_Cameras * Daily_Storage_GB * Retention_Days) * 1.15
+```
 
-$$\text{GB}_{\text{total}} = \left(\sum \text{GB}_{\text{day}} \times D\right) \times 1.15 \quad \text{(includes 15\% filesystem \& formatting safety margin)}$$
+*(Includes a 15% safety margin for filesystem and formatting overhead.)*
 
-The engine evaluates all valid **Western Digital WD Purple** surveillance HDD combinations (`1TB`, `2TB`, `4TB`, `8TB`) against the DVR's physical `max_sata_slots` and `max_tb_per_slot`, selecting the most cost-effective combination or automatically upgrading to a multi-SATA recorder (`Intelbras MHDX 3116`).
+The engine evaluates available **WD Purple** surveillance drives (`1TB`, `2TB`, `4TB`, `8TB`) against the recorder's `max_sata_slots` and `max_tb_per_slot` limits, selecting the lowest-cost drive combination or upgrading the recorder to a multi-SATA model when required.
 
-### 2. Intelbras MHDX Hybrid Topology Validation
-Intelbras Multi-HD DVRs (`4ch`, `8ch`, `16ch`, `32ch`) feature fixed physical BNC ports (`native_bnc_channels`), bonus native IP channels (`extra_ip_channels`), and **BNC-to-IP channel conversion** (sacrificing unused analog BNC ports to host IP cameras). Given $N_{\text{analog}}$ analog cameras and $N_{\text{ip}}$ IP cameras:
+### 2. Intelbras MHDX Hybrid Channel Allocation
+Intelbras Multi-HD DVRs (`4ch`, `8ch`, `16ch`, `32ch`) provide fixed physical BNC ports (`native_bnc_channels`), bonus IP channels (`extra_ip_channels`), and support **BNC-to-IP channel conversion** (converting unused analog BNC ports to accept IP streams). Given `N_analog` analog cameras and `N_ip` IP cameras:
 
-$$N_{\text{analog}} \le \text{native\_bnc\_channels}$$
+```text
+N_analog <= native_bnc_channels
+Converted_Channels = native_bnc_channels - N_analog
+N_ip <= extra_ip_channels + Converted_Channels
+N_analog + N_ip <= native_bnc_channels + extra_ip_channels
+```
 
-$$C_{\text{converted}} = \text{native\_bnc\_channels} - N_{\text{analog}}$$
+For example, a topology with 7 analog BNC cameras and 3 IP cameras (10 cameras total) fits on an 8-channel **Intelbras MHDX 1108** (`8 BNC + 2 Extra IP`) by converting the 8th unused BNC port into an IP channel (`2 + 1 = 3 IP` capacity), avoiding an unnecessary upgrade to a 16-channel recorder.
 
-$$N_{\text{ip}} \le \text{extra\_ip\_channels} + C_{\text{converted}} \quad \text{and} \quad N_{\text{analog}} + N_{\text{ip}} \le \text{native\_bnc\_channels} + \text{extra\_ip\_channels}$$
-
-> **Example:** A project with **7 Analog BNC cameras + 3 IP cameras** ($10$ total cameras) does **not** require an expensive 16-channel DVR. The engine proves that an 8-channel **Intelbras MHDX 1108** ($8\text{ BNC} + 2\text{ Extra IP}$) converts its $8\text{th}$ unused BNC port into an IP channel ($2 + 1 = 3\text{ IP}$ capacity, $10$ total channels) and selects the `MHDX 1108` automatically.
-
-### 3. Electrical Sizing, Copper Voltage Drop & Auto-BOM Derivation
-- **Current Draw with 30% Headroom:** $I_{\text{total}} = \left(\sum I_{\text{camera\_IR\_on}}\right) \times 1.30$, matching against regulated $12.8\text{V}$ switching power supplies (`5A`, `10A`, `20A` MCM Colmeia) or computing PoE wattage budgets ($1.25\times$ headroom) for Intelbras PoE Switches.
-- **Copper Cable Voltage Drop Check:** Computes $\Delta V = 2 \times L \times I \times R_{\text{meter}}$ over coaxial bipolar ($20\text{ AWG}$) or Cat5e UTP ($24\text{ AWG}$). If voltage at the camera load drops below **$10.8\text{V DC}$** ($>10\%$ drop), the engine raises a structured `VoltageDropWarning` recommending parallel pair wiring or local PSU placement.
-- **Automatic Accessory BOM:** Automatically derives passive video balun pairs (`Intelbras XBP 502`), `P4` / `BNC` / `RJ45` connectors, `VBOX 1100E` junction boxes, cable rolls/boxes with a **$1.15\times$ routing slack factor**, and per-point installation labor.
-
----
-
-## 5. Tech Stack & Tooling Matrix
-
-| Layer | Technology | Engineering Rationale |
-| :--- | :--- | :--- |
-| **Backend Framework** | **Python 3.12+**, **FastAPI** (`0.162+`), **Uvicorn** | 100% `async`/`await` I/O, PEP 695 generics, automatic OpenAPI 3.1 generation |
-| **ORM & Database** | **PostgreSQL 17**, **SQLAlchemy 2.0 Async**, **Alembic** | Modern 2.0 `select()`/`Mapped[T]` syntax only, `asyncpg` driver, `SELECT ... FOR UPDATE` locking |
-| **Validation & Settings** | **Pydantic v2**, `pydantic-settings` | Rust-backed serialization, discriminated JSONB `specs` unions, role-based field redaction |
-| **Async Task Queue** | **Taskiq** (`taskiq-redis`, `taskiq-fastapi`), **Redis 7** | Native `asyncio` worker loop sharing FastAPI lifespan & `AsyncSession` without Celery event-loop hacks ([ADR-003](./DECISIONS.md#adr-003-taskiq-taskiq-redis-over-celery-for-native-asyncio-compatibility-with-fastapi-and-sqlalchemy-20)) |
-| **PDF & Object Storage** | **WeasyPrint**, `qrcode[pil]`, **MinIO (S3)**, `aioboto3` | Async HTML-to-PDF rendering, SHA-256 document hashing, S3 presigned URLs |
-| **Observability & Auth** | `structlog`, **RFC 7807**, `pyjwt`, `pwdlib[argon2]` | JSON structured logs with `X-Correlation-ID` propagation, Argon2id password hashing |
-| **Frontend Stack** | **Next.js (App Router)**, **React 19**, **TypeScript 5 (Strict)** | Server/Client component split, `strict: true` + `noUncheckedIndexedAccess: true` |
-| **UI & State Management** | **Tailwind CSS v4**, `shadcn/ui`, **TanStack Query v5**, **React Hook Form**, **Zod** | Accessible radix/base primitives, optimistic cache invalidation, schema-validated forms |
-| **Quality Gate & Testing** | **Ruff**, **Mypy (`--strict`)**, **Pytest**, **Testcontainers**, **ESLint** | Zero `Any` tolerance, real PostgreSQL & Redis containers for concurrency integration tests |
-| **Dev Containerization** | **Docker Compose Watch** (`docker-compose.dev.yml`) | Hybrid Linux bind mounts (`inotify` reload) + anonymous volume isolation for `.venv` & `node_modules` ([ADR-006](./DECISIONS.md#adr-006-hybrid-cachyos-linux-docker-compose-watch-strategy-bind-mounts-for-source--anonymous-volumes-for-venvnode_modules--lockfile-rebuild)) |
+### 3. Electrical Load, Voltage Drop & Auto-BOM
+- **Power Supply & PoE Sizing:** Calculates total current draw with IR active plus a 30% safety margin (`I_total = Sum(I_cam_IR) * 1.30`) to select regulated 12V DC switching supplies (`5A`, `10A`, `20A`) or PoE switches (`802.3af/at` wattage budget with 25% headroom).
+- **Copper Cable Voltage Drop:** Computes `Delta_V = 2 * Length_m * Current_A * Resistance_ohm_per_m` across coaxial bipolar (`20 AWG`) or Cat5e UTP (`24 AWG`). If voltage at the camera load drops below `10.8V DC` (exceeding a 10% drop on a 12V line), the engine returns a voltage drop warning.
+- **Automatic Accessory BOM:** Derives passive video balun pairs (`XBP 502`), `P4` / `BNC` / `RJ45` connectors, `VBOX 1100E` junction boxes, cable rolls/boxes with a `1.15x` routing slack factor, and installation labor points.
 
 ---
 
-## 6. Zero-Friction Quick Start (Run in 1 Command)
+## Tech Stack
+
+| Category | Technologies |
+| :--- | :--- |
+| **Backend** | Python 3.12+, FastAPI, SQLAlchemy 2.0 (`AsyncSession`), Pydantic v2, Alembic |
+| **Database & Queue** | PostgreSQL 17, Redis 7, Taskiq (`taskiq-redis`, `taskiq-fastapi`) |
+| **Storage & Documents** | MinIO (S3-compatible), `aioboto3`, WeasyPrint, `qrcode[pil]`, Jinja2 |
+| **Security & Logging** | `pyjwt`, `pwdlib[argon2]`, `structlog` (JSON logs + `X-Correlation-ID`), RFC 7807 |
+| **Frontend** | Next.js (App Router), React 19, TypeScript 5 (`strict`), Tailwind CSS v4, `shadcn/ui` |
+| **State & Forms** | TanStack Query v5, React Hook Form, Zod |
+| **Quality & Testing** | Ruff, Mypy (`--strict`), Pytest, Testcontainers (PostgreSQL & Redis), ESLint |
+
+---
+
+## Getting Started
 
 ### Prerequisites
-- **Docker** & **Docker Compose v2.22+** (with Compose Watch support)
-- *(Optional for host IDE/LSP)*: `uv` (Python 3.12+) and `pnpm` (Node.js 22 LTS)
+- Docker and Docker Compose v2.22+
+- *(Optional for running host checks)*: `uv` (Python 3.12+) and `pnpm` (Node.js 22+)
 
-### Step 1: Clone & Launch with Docker Compose Watch
+### Run with Docker Compose Watch
 ```bash
 git clone https://github.com/your-username/bravo-erp.git
 cd bravo-erp
 cp .env.example .env
 
-# Starts Postgres 17, Redis 7, MinIO (+ bucket auto-setup), FastAPI Backend, Taskiq Worker, and Next.js Frontend
 docker compose -f docker-compose.dev.yml up --build --watch
 ```
 
-### Step 2: Explore via 1-Click Recruiter Demo Mode 🎯
-Once the stack is healthy, open **`http://localhost:3000`**.
-You do **not** need to register an account or type credentials:
-1. Click **"Entrar como Proprietário (Demo Owner)"** to inspect full financial KPIs, equipment cost prices, profit margins, the interactive CCTV Sizing Wizard, and the **11-Month Preventive Maintenance Warranty Radar**.
-2. Click **"Alternar para Visão Técnico (Demo Technician)"** to experience the mobile-first field Work Order checklist, MinIO installation photo upload, and **Serial Number Vault**—while verifying in your browser's Network tab that all cost and margin fields are stripped at the API boundary.
-3. Click **"Abrir Link Público do Cliente (Demo Public Quote)"** to view a customer-facing proposal, download the WeasyPrint PDF, verify its SHA-256 QR authenticity hash, and trigger atomic `SELECT ... FOR UPDATE` inventory reservation in one click.
-4. Click **"Restaurar Dados da Demo"** at any time to idempotently reset the demo tenant back to its initial Intelbras/WD Purple seed state.
+The development stack uses native Linux bind mounts for `src/` directories alongside anonymous volumes for `.venv` and `node_modules` ([ADR-006](./DECISIONS.md)), providing instant hot-reload without colliding with host virtual environments.
 
-### Local Service Endpoints
+### Demo Environment
+On startup, the database seeder (`src/seed/demo_seeder.py`) populates a demo organization with an Intelbras/WD Purple/Condutti product catalog and sample quotes. The login screen at `http://localhost:3000/login` includes quick-switch buttons to sign in as an **Owner**, **Field Technician**, or **Public Client** without manual setup, as well as an option to reset the demo data at any time.
 
-| Service | Local URL | Description |
+### Local Endpoints
+
+| Service | URL | Notes |
 | :--- | :--- | :--- |
-| **Next.js Frontend App** | `http://localhost:3000` | Main ERP UI + 1-Click Recruiter Demo Mode |
-| **FastAPI Interactive Docs (Swagger)** | `http://localhost:8000/api/v1/docs` | OpenAPI 3.1 specification & interactive REST tester |
-| **Healthcheck & Correlation Probe** | `http://localhost:8000/api/v1/health` | Returns service health + `X-Correlation-ID` trace header |
-| **MinIO S3 Web Console** | `http://localhost:9001` | Object storage browser (`minioadmin` / `minioadmin_secret`) |
+| **Frontend Application** | `http://localhost:3000` | Next.js web interface |
+| **Backend API & OpenAPI Docs** | `http://localhost:8000/api/v1/docs` | Swagger UI |
+| **Healthcheck** | `http://localhost:8000/api/v1/health` | Service status and correlation header check |
+| **MinIO Console** | `http://localhost:9001` | Default dev credentials in `.env.example` |
 
-### Running the Strict Quality Gate Suite
+### Quality Gate & Testing
 ```bash
-# 1. Backend Linter & Formatter (Ruff)
+# Backend linting & formatting
 uv run --project backend ruff check backend/src backend/tests backend/migrations
 uv run --project backend ruff format --check backend/src backend/tests backend/migrations
 
-# 2. Backend Static Type Checker (Mypy --strict, zero Any)
+# Backend strict static type checking
 uv run --project backend mypy --config-file backend/pyproject.toml backend/src backend/tests --strict
 
-# 3. Backend Unit & Concurrency Integration Tests (Pytest + Testcontainers)
+# Backend unit & integration tests
 uv run --project backend pytest backend/tests -v
 
-# 4. Frontend Strict TypeScript & ESLint
+# Frontend type checking & linting
 pnpm -C frontend typecheck
 pnpm -C frontend lint
 ```
 
 ---
 
-## 7. Developer & Agent Governance (Spec-Driven Engineering)
+## Documentation
 
-This repository practices **Spec-Driven AI Development**. Every architectural invariant, database constraint, mathematical formula, and task transition is governed by four living documents at the repository root:
+Architectural specifications, domain formulas, and engineering decisions are maintained in the repository root:
 
-- **[`AGENTS.md`](./AGENTS.md):** The supreme operational constitution for AI coding agents and contributors. Enforces the 4-step Golden Protocol (*Context Ingestion → Scope Change Capture → CLI-First Execution → Strict Quality Gate*).
-- **[`SPEC.md`](./SPEC.md):** Complete engineering specification containing the 10-table Mermaid ERD, category-specific `specs` JSONB schemas, CCTV sizing formulas, state machines, and REST API contracts.
-- **[`DECISIONS.md`](./DECISIONS.md):** Formal Architecture Decision Records (**ADR-001** through **ADR-007**) documenting the *why* and *trade-offs* behind every major technical choice (e.g., Modular Monolith, Explicit Tenant DI vs. RLS, Taskiq vs. Celery, Pessimistic Locking, Transactional Outbox, Integer `_cents` arithmetic).
-- **[`PLAN.md`](./PLAN.md):** Granular, phased execution tracker with verifiable quality gates per milestone.
+- [`SPEC.md`](./SPEC.md) — Database schema (ERD), JSONB category specifications, sizing formulas, state machines, and REST API contracts.
+- [`DECISIONS.md`](./DECISIONS.md) — Architecture Decision Records (ADRs 001–007).
+- [`PLAN.md`](./PLAN.md) — Implementation roadmap and milestone tracker.
+- [`AGENTS.md`](./AGENTS.md) — Development workflow, coding standards, and quality gate commands.
 
 ---
 
-## 8. Future Roadmap (v2 Horizons)
+## Roadmap
 
-- [ ] **Real-Time DVR Heartbeat & HDD S.M.A.R.T. Ingestion (SMTP/Webhook Collector):** Ingest automated email/webhook alerts emitted by Intelbras MHDX/NVD recorders (`Disk Error`, `Video Loss`, `Fan Failure`) to automatically open high-priority maintenance Work Orders.
-- [ ] **Automated WhatsApp Cloud API Notifications:** Dispatch quote approval links, technician en-route notifications, and 11-month preventive maintenance proposals directly to the customer's WhatsApp via Taskiq outbox consumers.
-- [ ] **Multi-Van / Multi-Warehouse Inventory Transfers:** Track stock across central warehouse shelves and individual technician service vehicles (`van_stock_locations`).
-- [ ] **Fiscal Invoice Integration (NF-e / NFS-e):** Emit Brazilian product (`NF-e`) and installation service (`NFS-e`) tax invoices automatically upon Work Order completion.
+- **DVR Heartbeat & S.M.A.R.T. Event Ingestion:** Parse automated alert emails/webhooks from Intelbras recorders (`Disk Error`, `Video Loss`) to open maintenance tickets automatically.
+- **WhatsApp Notifications:** Send quote links, technician dispatch updates, and 11-month preventive maintenance reminders via WhatsApp webhooks.
+- **Multi-Location Stock:** Track inventory across main warehouse shelves and individual technician vehicles.
+- **Fiscal Invoicing:** Integrate Brazilian `NF-e` and `NFS-e` issuance upon work order completion.
 
 ---
 
 ## License
 
-Distributed under the **MIT License**. Built with precision as both a real-world CCTV engineering platform and a reference architecture for modern asynchronous Python & TypeScript systems.
+MIT License.
