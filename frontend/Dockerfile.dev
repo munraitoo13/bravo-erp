@@ -1,0 +1,17 @@
+FROM node:22-alpine
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml ./
+
+RUN pnpm install --frozen-lockfile --config.strict-dep-builds=false
+
+COPY . .
+
+EXPOSE 3000
+
+CMD ["pnpm", "dev", "-H", "0.0.0.0", "-p", "3000"]

@@ -1,0 +1,102 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "munraitoo13", email = "58868041+munraitoo13@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.20.1",
+    "asyncpg>=0.32.0",
+    "fastapi>=0.162.0",
+    "pydantic[email]>=2.14.2",
+    "pydantic-settings>=2.16.2",
+    "sqlalchemy[asyncio]>=2.1.6",
+    "uvicorn[standard]>=0.54.0",
+    "taskiq>=0.13.0",
+    "taskiq-redis>=1.2.4",
+    "taskiq-fastapi>=0.5.0",
+    "redis>=8.1.0",
+    "structlog>=26.1.0",
+    "pyjwt>=2.15.1",
+    "pwdlib[argon2]>=0.3.1",
+    "weasyprint>=70.0",
+    "qrcode[pil]>=8.2",
+    "jinja2>=3.1.6",
+    "aioboto3>=15.5.0",
+    "httpx>=0.28.1",
+    "python-multipart>=0.0.32",
+]
+
+[project.scripts]
+backend = "src.main:app"
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "src"
+module-root = ""
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.3",
+    "testcontainers[postgres,redis]>=4.15.0",
+    "types-aioboto3[s3]>=15.5.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "N", "RUF"]
+ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S105", "S106"]
+"src/seed/**/*.py" = ["S105", "S106"]
+"src/core/config.py" = ["S105"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+disallow_any_generics = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+plugins = ["pydantic.mypy"]
+mypy_path = "$MYPY_CONFIG_FILE_DIR"
+explicit_package_bases = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[[tool.mypy.overrides]]
+module = [
+    "taskiq_fastapi.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
