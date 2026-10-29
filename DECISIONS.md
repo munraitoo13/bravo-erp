@@ -105,6 +105,9 @@
     - **Idempotent Consumers:** Workers are designed to be idempotent—re-processing `QuoteApprovedEvent` simply overwrites the deterministic MinIO key `proposals/{org_id}/{quote_id}.pdf` and updates `pdf_sha256_hash`.
   - **Cons:**
     - Adds a polling interval (~1–2 seconds) before async side effects start, plus table maintenance for `outbox_events` (mitigated by a partial index `WHERE status = 'PENDING'`).
+  - **Implementation Nuance (Phase 4 — Cryptographic Preimage & `SKIP LOCKED`):**
+    - Because a PDF cannot contain its own final SHA-256 digest in plain text prior to hashing, the embedded QR Code encodes the canonical proposal/verification URL (`https://bravo-erp.dev/public/quotes/{public_token}` + quote metadata), WeasyPrint renders the final binary PDF, and `hashlib.sha256(pdf_bytes).hexdigest()` is persisted on `quotes.pdf_sha256_hash` (`UNIQUE CHAR(64)`). The public verifier (`GET /api/v1/verify/{pdf_sha256_hash}`) then validates document authenticity and live hardware warranty status against that digest.
+    - `outbox_relay.py` and `warranty_cron.py` use `.with_for_update(skip_locked=True).execution_options(populate_existing=True)` so concurrent Taskiq worker processes can poll `outbox_events` and `work_orders` without blocking one another or double-processing events.
 
 ---
 

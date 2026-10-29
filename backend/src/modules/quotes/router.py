@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db_session
 from src.core.dependencies import CurrentTenantContext, require_role
 from src.core.security import UserRole
+from src.core.storage import StorageClient, get_storage_client
 from src.modules.quotes.models import QuoteStatus
 from src.modules.quotes.schemas import (
     CustomerCreateRequest,
@@ -26,9 +27,10 @@ router = APIRouter(tags=["quotes"])
 
 def get_quote_service(
     session: Annotated[AsyncSession, Depends(get_db_session)],
+    storage_client: Annotated[StorageClient, Depends(get_storage_client)],
 ) -> QuoteService:
     """Provide scoped QuoteService instance."""
-    return QuoteService(session)
+    return QuoteService(session, storage_client=storage_client)
 
 
 def _extract_client_ip(request: Request) -> str | None:

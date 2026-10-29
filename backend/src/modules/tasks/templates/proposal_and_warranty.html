@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Proposta Comercial e Certificado de Garantia - {{ organization_name }}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 16mm 14mm;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.4;
+      color: #0f172a;
+      margin: 0;
+      padding: 0;
+    }
+    .header-box {
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+    .company-title {
+      font-size: 15pt;
+      font-weight: bold;
+      color: #0f172a;
+      margin: 0 0 4px 0;
+    }
+    .company-sub {
+      font-size: 9pt;
+      color: #475569;
+      margin: 0;
+    }
+    .doc-banner {
+      background-color: #0f172a;
+      color: #ffffff;
+      padding: 8px 12px;
+      font-size: 11pt;
+      font-weight: bold;
+      letter-spacing: 0.4px;
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: 10.5pt;
+      font-weight: bold;
+      color: #0f172a;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 4px;
+      margin: 14px 0 8px 0;
+      text-transform: uppercase;
+    }
+    .meta-table, .bom-table, .serial-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+    }
+    .meta-table td {
+      padding: 4px 6px;
+      font-size: 9.2pt;
+      border: 1px solid #e2e8f0;
+    }
+    .meta-label {
+      font-weight: bold;
+      background-color: #f8fafc;
+      width: 22%;
+      color: #334155;
+    }
+    .bom-table th, .serial-table th {
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-size: 8.8pt;
+      font-weight: bold;
+      text-align: left;
+      padding: 6px;
+      border: 1px solid #cbd5e1;
+    }
+    .bom-table td, .serial-table td {
+      padding: 5px 6px;
+      font-size: 8.8pt;
+      border: 1px solid #cbd5e1;
+    }
+    .text-right {
+      text-align: right;
+    }
+    .text-center {
+      text-align: center;
+    }
+    .total-row td {
+      font-weight: bold;
+      font-size: 10pt;
+      background-color: #f8fafc;
+    }
+    .approval-box {
+      border: 1px solid #16a34a;
+      background-color: #f0fdf4;
+      padding: 8px 10px;
+      margin-top: 10px;
+      font-size: 9pt;
+    }
+    .qr-footer {
+      margin-top: 16px;
+      border: 1px solid #94a3b8;
+      background-color: #f8fafc;
+      padding: 10px;
+      width: 100%;
+    }
+    .qr-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .qr-table td {
+      vertical-align: middle;
+    }
+    .qr-img {
+      width: 96px;
+      height: 96px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      padding: 4px;
+    }
+    .mono {
+      font-family: "DejaVu Sans Mono", "Courier New", monospace;
+      font-size: 8.5pt;
+    }
+  </style>
+</head>
+<body>
+  <div class="header-box">
+    <p class="company-title">{{ organization_name }}</p>
+    <p class="company-sub">
+      CNPJ: {{ organization_cnpj }} &bull; Engenharia de Segurança Eletrônica &amp; CFTV Profissional (Linha Intelbras Multi-HD MHDX &amp; IP NVD)
+    </p>
+  </div>
+
+  <div class="doc-banner">
+    PROPOSTA TÉCNICA COMERCIAL E CERTIFICADO DE GARANTIA DE CFTV
+  </div>
+
+  <div class="section-title">1. Identificação da Proposta e do Cliente</div>
+  <table class="meta-table">
+    <tr>
+      <td class="meta-label">Nº da Proposta:</td>
+      <td class="mono">{{ quote_id }} (v{{ quote_version }})</td>
+      <td class="meta-label">Status Atual:</td>
+      <td><strong>{{ status_label_pt_br }}</strong></td>
+    </tr>
+    <tr>
+      <td class="meta-label">Cliente / Razão Social:</td>
+      <td>{{ customer_name }}</td>
+      <td class="meta-label">CPF / CNPJ:</td>
+      <td>{{ customer_document }}</td>
+    </tr>
+    <tr>
+      <td class="meta-label">Contato / WhatsApp:</td>
+      <td>{{ customer_phone }} &bull; {{ customer_email }}</td>
+      <td class="meta-label">Validade da Proposta:</td>
+      <td>{{ valid_until_formatted }}</td>
+    </tr>
+    <tr>
+      <td class="meta-label">Local de Instalação:</td>
+      <td colspan="3">{{ customer_address_formatted }}</td>
+    </tr>
+  </table>
+
+  {% if sizing_entries %}
+  <div class="section-title">2. Memorial Técnico de Dimensionamento de Engenharia CFTV</div>
+  <table class="meta-table">
+    {% for entry in sizing_entries %}
+    <tr>
+      <td class="meta-label">{{ entry.label }}</td>
+      <td colspan="3">{{ entry.value }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  <div class="section-title">3. Relação de Equipamentos, Acessórios e Serviços (BOM)</div>
+  <table class="bom-table">
+    <thead>
+      <tr>
+        <th style="width: 16%;">SKU</th>
+        <th style="width: 44%;">Descrição Técnica do Item</th>
+        <th style="width: 8%;" class="text-center">Qtd</th>
+        <th style="width: 16%;" class="text-right">Valor Unit.</th>
+        <th style="width: 16%;" class="text-right">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="mono">{{ item.sku }}</td>
+        <td>{{ item.name_pt_br }}</td>
+        <td class="text-center">{{ item.quantity }}</td>
+        <td class="text-right">{{ item.unit_sale_formatted }}</td>
+        <td class="text-right">{{ item.line_total_formatted }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td colspan="4" class="text-right">VALOR TOTAL DO INVESTIMENTO:</td>
+        <td class="text-right">{{ total_sale_formatted }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  {% if approved_at_formatted %}
+  <div class="approval-box">
+    <strong>REGISTRO DE ACEITE ELETRÔNICO:</strong>
+    Proposta aprovada eletronicamente em <strong>{{ approved_at_formatted }}</strong>
+    a partir do endereço IP <span class="mono">{{ approved_by_ip }}</span>.
+  </div>
+  {% endif %}
+
+  {% if work_order %}
+  <div class="section-title">4. Certificado de Execução Técnica, Cofre de Seriais e Garantia</div>
+  <table class="meta-table">
+    <tr>
+      <td class="meta-label">Ordem de Serviço:</td>
+      <td class="mono">{{ work_order.id }} ({{ work_order.status_label_pt_br }})</td>
+      <td class="meta-label">Intelbras Cloud P2P:</td>
+      <td class="mono">{{ work_order.cloud_p2p_id or "N/A" }}</td>
+    </tr>
+    <tr>
+      <td class="meta-label">Conclusão da Obra:</td>
+      <td>{{ work_order.completed_at_formatted or "Em andamento" }}</td>
+      <td class="meta-label">Vencimento Garantia (12m):</td>
+      <td><strong>{{ work_order.warranty_expires_formatted or "Após conclusão" }}</strong></td>
+    </tr>
+  </table>
+
+  {% if installed_serials %}
+  <table class="serial-table">
+    <thead>
+      <tr>
+        <th style="width: 15%;">SKU</th>
+        <th style="width: 31%;">Equipamento Instalado</th>
+        <th style="width: 20%;">Canal / Posição</th>
+        <th style="width: 18%;">Número de Série (S/N)</th>
+        <th style="width: 16%;" class="text-center">Garantia Cliente</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for serial in installed_serials %}
+      <tr>
+        <td class="mono">{{ serial.sku }}</td>
+        <td>{{ serial.name_pt_br }}</td>
+        <td>{{ serial.channel_or_slot_label }}</td>
+        <td class="mono"><strong>{{ serial.serial_number }}</strong></td>
+        <td class="text-center">{{ serial.client_warranty_formatted }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% endif %}
+
+  <div class="qr-footer">
+    <table class="qr-table">
+      <tr>
+        <td style="width: 112px;">
+          <img class="qr-img" src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code de Autenticidade" />
+        </td>
+        <td>
+          <strong>AUTENTICIDADE CRIPTOGRÁFICA E VERIFICAÇÃO PÚBLICA (SHA-256)</strong><br />
+          Este documento técnico é assinado digitalmente por hash criptográfico SHA-256 e vinculado ao Cofre de Números de Série da
+          <strong>{{ organization_name }}</strong>.<br />
+          Token Público de Consulta: <span class="mono">{{ public_token }}</span><br />
+          URL de Verificação: <span class="mono">{{ verification_url }}</span><br />
+          Emitido em (UTC): <span class="mono">{{ generated_at_iso }}</span>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

@@ -1,9 +1,9 @@
 # `PLAN.md` — Living Execution Roadmap & Task Tracker
 
 > **Current Session Handoff Notes:**
-> - **Active Phase:** Phase 4 — Field Work Orders, Serial Number Vault, Warranty Engine & Async PDF Worker (`work_orders` & `tasks`)
-> - **Completed in Current Turn:** Phase 3 (Steps 3.1–3.4) completed and verified with 0 errors across `ruff check`, `ruff format --check`, `mypy --strict` (56 source files), `pytest` (22 unit & integration tests passing, including `asyncio.gather` parallel quote approval concurrency tests), `tsc --noEmit`, and `eslint`.
-> - **Next Immediate Action:** Phase 4 — Implement `work_orders/state_machine.py`, `work_orders/schemas.py`, `work_orders/repository.py`, `work_orders/service.py`, `work_orders/router.py`, WeasyPrint PDF generator (`tasks/pdf_generator.py`), outbox relay (`tasks/outbox_relay.py`), 11-month warranty cron (`tasks/warranty_cron.py`), public SHA-256 verifier (`/api/v1/verify/{pdf_sha256_hash}`), and `tests/integration/test_outbox_and_pdf.py`.
+> - **Active Phase:** Phase 5 — Frontend Application (Next.js App Router, PT-BR UI, Strict TypeScript)
+> - **Completed in Current Turn:** Phase 4 (Steps 4.1–4.4) completed and verified with 0 errors across `ruff check`, `ruff format --check`, `mypy --strict` (66 source files), `pytest` (24 unit & integration tests passing, including full end-to-end Quote Approval -> Work Order Serial Vault & Completion -> Outbox Relay -> WeasyPrint PDF + QR Code + SHA-256 verification and 11-month Warranty Cron), `tsc --noEmit`, and `eslint`.
+> - **Next Immediate Action:** Phase 5 — Implement Frontend typed API client (`api-client.ts`), Auth/Demo Persona Switcher (`auth-context.tsx`), `/login`, `/dashboard` (with 11-Month Warranty Radar), `/sizing` wizard, `/catalog`, `/quotes`, `/public/quotes/[token]`, `/public/verify/[sha256]`, and `/work-orders` mobile-first technician view.
 
 ---
 
@@ -167,19 +167,19 @@ uv run --project backend pytest backend/tests/unit/test_state_machines.py backen
 ## Phase 4: Field Work Orders, Serial Number Vault, Warranty Engine & Async PDF Worker (`work_orders` & `tasks`)
 
 ### Tasks
-- [ ] **4.1: Work Order Execution & Serial Number Vault (`backend/src/modules/work_orders/`)**
+- [x] **4.1: Work Order Execution & Serial Number Vault (`backend/src/modules/work_orders/`)**
   - Implement `work_orders/state_machine.py`, `work_orders/schemas.py`, `work_orders/repository.py`, `work_orders/service.py`, and `work_orders/router.py`.
   - Implement checklist toggling, MinIO photo upload (`POST /api/v1/work-orders/{id}/photos`), and hardware Serial Number registration (`POST /api/v1/work-orders/{id}/serials` with automatic computation of `distributor_warranty_until` and `client_warranty_until`).
   - Implement strict completion guards on `POST /api/v1/work-orders/{id}/complete` (all checklist steps checked, $\ge 1$ photo, all serialize-mandatory hardware units registered in `installed_serials`), deducting physical `stock_quantity` and `reserved_quantity`, setting `warranty_expires_at = today + 365 days`, and emitting `WorkOrderCompletedEvent`.
-- [ ] **4.2: WeasyPrint PDF Proposal & Warranty Certificate Worker (`backend/src/modules/tasks/pdf_generator.py`)**
+- [x] **4.2: WeasyPrint PDF Proposal & Warranty Certificate Worker (`backend/src/modules/tasks/pdf_generator.py`)**
   - Create professional PT-BR Jinja2 HTML/CSS template (`templates/proposal_and_warranty.html`) rendering company header, customer info, technical sizing summary, itemized BOM (without cost/margin), acceptance metadata (IP + timestamp), installed hardware Serial Numbers & warranty table, and embedded verification QR Code image (Base64 PNG).
   - Render PDF bytes via WeasyPrint, compute hex `sha256`, upload PDF to MinIO (`proposals/{org_id}/{quote_id}.pdf`), and store `pdf_storage_key` + `pdf_sha256_hash` on `Quote`.
-- [ ] **4.3: Outbox Relay, 11-Month Warranty Cron & Public SHA-256 Verifier**
+- [x] **4.3: Outbox Relay, 11-Month Warranty Cron & Public SHA-256 Verifier**
   - Implement `tasks/outbox_relay.py` (`SELECT ... FOR UPDATE SKIP LOCKED` on `outbox_events`).
   - Implement `tasks/warranty_cron.py` scanning `work_orders` where `warranty_expires_at <= current_date + 30 days` and `preventive_maintenance_alert_sent == False`, setting the flag and emitting `WarrantyExpiringAlertEvent`.
   - Implement `tasks/demo_reset_cron.py` for periodic Demo Tenant state restoration.
   - Expose `GET /api/v1/warranties/expiring` and `GET /api/v1/verify/{pdf_sha256_hash}`.
-- [ ] **4.4: Outbox, PDF Generation & Warranty Integration Tests**
+- [x] **4.4: Outbox, PDF Generation & Warranty Integration Tests**
   - Write `tests/integration/test_outbox_and_pdf.py` verifying the end-to-end flow: Quote Approval -> Work Order Serial Registration & Completion -> Outbox Relay -> WeasyPrint PDF rendered -> SHA-256 hash verified via `GET /api/v1/verify/{pdf_sha256_hash}`.
 
 ### Phase 4 Verification Gate

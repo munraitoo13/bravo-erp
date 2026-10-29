@@ -51,6 +51,7 @@ dev = [
     "ruff>=0.17.3",
     "testcontainers[postgres,redis]>=4.15.0",
     "types-aioboto3[s3]>=15.5.0",
+    "types-qrcode>=8.2.0.20260518",
 ]
 
 [tool.ruff]
@@ -93,6 +94,7 @@ warn_required_dynamic_aliases = true
 module = [
     "taskiq_fastapi.*",
     "testcontainers.*",
+    "weasyprint",
 ]
 ignore_missing_imports = true
 
