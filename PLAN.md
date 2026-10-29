@@ -1,9 +1,9 @@
 # `PLAN.md` — Living Execution Roadmap & Task Tracker
 
 > **Current Session Handoff Notes:**
-> - **Active Phase:** Phase 3 — Quotes, State Machine, Pessimistic Locking & Transactional Outbox (`quotes`)
-> - **Completed in Current Turn:** Phase 2 (Steps 2.1–2.4) completed and verified with 100.00% coverage on `src.modules.sizing.domain` (452/452 statements) and 0 errors across `ruff check`, `ruff format --check`, `mypy --strict`, `pytest` (17 unit & integration tests passing), `tsc --noEmit`, and `eslint`.
-> - **Next Immediate Action:** Phase 3 — Implement `quotes/state_machine.py`, `quotes/repository.py`, `quotes/service.py` (with `SELECT ... FOR UPDATE` ascending-UUID stock reservation + `WorkOrder` creation + `AuditLog` + `OutboxEvent`), `quotes/router.py`, `tests/unit/test_state_machines.py`, and `tests/integration/test_quote_concurrency.py`.
+> - **Active Phase:** Phase 4 — Field Work Orders, Serial Number Vault, Warranty Engine & Async PDF Worker (`work_orders` & `tasks`)
+> - **Completed in Current Turn:** Phase 3 (Steps 3.1–3.4) completed and verified with 0 errors across `ruff check`, `ruff format --check`, `mypy --strict` (56 source files), `pytest` (22 unit & integration tests passing, including `asyncio.gather` parallel quote approval concurrency tests), `tsc --noEmit`, and `eslint`.
+> - **Next Immediate Action:** Phase 4 — Implement `work_orders/state_machine.py`, `work_orders/schemas.py`, `work_orders/repository.py`, `work_orders/service.py`, `work_orders/router.py`, WeasyPrint PDF generator (`tasks/pdf_generator.py`), outbox relay (`tasks/outbox_relay.py`), 11-month warranty cron (`tasks/warranty_cron.py`), public SHA-256 verifier (`/api/v1/verify/{pdf_sha256_hash}`), and `tests/integration/test_outbox_and_pdf.py`.
 
 ---
 
@@ -139,19 +139,19 @@ uv run --project backend pytest backend/tests/unit/test_sizing_engine.py --cov=s
 ## Phase 3: Quotes, State Machine, Pessimistic Locking & Transactional Outbox (`quotes`)
 
 ### Tasks
-- [ ] **3.1: Quote State Machine & Audit Diff Builder (`backend/src/modules/quotes/state_machine.py`)**
+- [x] **3.1: Quote State Machine & Audit Diff Builder (`backend/src/modules/quotes/state_machine.py`)**
   - Implement `QuoteStateMachine` enforcing valid transitions (`DRAFT -> SENT -> APPROVED -> IN_PROGRESS -> COMPLETED`, `CANCELED`, `EXPIRED`) and generating structured `previous_state`/`new_state` dicts for `audit_logs`.
-- [ ] **3.2: Quote & Customer Repositories and Role-Aware Schemas**
+- [x] **3.2: Quote & Customer Repositories and Role-Aware Schemas**
   - Implement `QuoteOwnerResponse`, `QuoteTechnicianResponse`, and `QuotePublicResponse` in `quotes/schemas.py`.
   - Implement `quotes/repository.py` including deterministic ascending-UUID `SELECT ... FOR UPDATE` catalog locking (`lock_catalog_items_for_update`).
-- [ ] **3.3: Atomic Quote Approval Unit of Work & Transactional Outbox Emission**
+- [x] **3.3: Atomic Quote Approval Unit of Work & Transactional Outbox Emission**
   - Implement `quotes/service.py`:
     - Create quote (from manual items or sizing engine snapshot).
     - Send quote (`DRAFT -> SENT` + `QuoteSentEvent` in `outbox_events`).
     - Public/Owner approve quote (`SENT -> APPROVED` + `SELECT ... FOR UPDATE` stock reservation + `WorkOrder` creation with default PT-BR checklist + `AuditLog` + `QuoteApprovedEvent` in `outbox_events`).
     - Cancel quote (releases `reserved_quantity` if `APPROVED`).
   - Expose `/api/v1/customers/*`, `/api/v1/quotes/*`, and `/api/v1/public/quotes/{public_token}/*` in `quotes/router.py`.
-- [ ] **3.4: State Machine Unit Tests & Parallel Concurrency Integration Test**
+- [x] **3.4: State Machine Unit Tests & Parallel Concurrency Integration Test**
   - Write `tests/unit/test_state_machines.py`.
   - Write `tests/integration/test_quote_concurrency.py` using `asyncio.gather` to fire concurrent approval requests for two quotes competing for the last `1` unit of an `Intelbras MHDX 1108` DVR in stock—proving one returns `200 OK`, the second returns `409 Conflict` (`application/problem+json`), and `reserved_quantity` equals `1`.
 

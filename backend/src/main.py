@@ -14,6 +14,7 @@ from src.core.config import get_settings
 from src.core.exceptions import ResourceNotFoundError, register_exception_handlers
 from src.core.logging import CorrelationIdMiddleware, configure_logging, get_correlation_id
 from src.modules.catalog.router import router as catalog_router
+from src.modules.quotes.router import router as quotes_router
 from src.modules.sizing.router import router as sizing_router
 from src.modules.tenants.router import router as auth_router
 
@@ -94,6 +95,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix=settings.api_v1_prefix)
     app.include_router(catalog_router, prefix=settings.api_v1_prefix)
     app.include_router(sizing_router, prefix=settings.api_v1_prefix)
+    app.include_router(quotes_router, prefix=settings.api_v1_prefix)
     return app
 
 

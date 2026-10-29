@@ -84,6 +84,8 @@
     - **Database Safety Net:** Backed by a PostgreSQL `CHECK (stock_quantity - reserved_quantity >= 0)` constraint on `catalog_items`.
   - **Cons:**
     - Holds row locks for the duration of the approval transaction (~2–5 ms). Because WeasyPrint PDF rendering and MinIO uploads are decoupled via the Transactional Outbox (ADR-005), zero network or CPU-heavy I/O occurs while the row locks are held.
+  - **Implementation Nuance (SQLAlchemy Identity Map & `populate_existing=True`):**
+    - Because `Quote.items` eagerly loads `QuoteItem.catalog_item` (`selectinload`) into the `AsyncSession` identity map when loading the `Quote`, a subsequent `select(CatalogItem).with_for_update()` query in the same session would normally return the already-cached Python `CatalogItem` instance without overwriting its attributes with the post-lock database values. All `SELECT ... FOR UPDATE` queries therefore chain `.execution_options(populate_existing=True)` so that when a blocked transaction acquires the row lock after a peer transaction commits, SQLAlchemy refreshes `stock_quantity` and `reserved_quantity` in-place from the locked database row.
 
 ---
 

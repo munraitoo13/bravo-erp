@@ -73,6 +73,7 @@ class CatalogRepository:
             )
             .order_by(CatalogItem.id.asc())
             .with_for_update()
+            .execution_options(populate_existing=True)
         )
         result = await self._session.scalars(stmt)
         return result.all()
