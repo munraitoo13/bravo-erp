@@ -1,1 +1,1 @@
-"""Equipment Catalog and Inventory Stock control module."""
+"""Equipment catalog and inventory management module."""

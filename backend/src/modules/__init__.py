@@ -1,1 +1,1 @@
-"""Domain Bounded Context modules for bravo-erp."""
+"""Domain modules package for bravo-erp."""

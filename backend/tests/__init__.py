@@ -1,1 +1,1 @@
-"""Automated test suite for bravo-erp backend."""
+"""Test suite package for bravo-erp backend."""

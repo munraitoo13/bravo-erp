@@ -1,1 +1,1 @@
-"""Commercial Quotes, State Machine, and Public Proposal module."""
+"""Commercial proposals, state machine, and public approval module."""

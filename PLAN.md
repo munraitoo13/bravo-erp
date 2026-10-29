@@ -1,9 +1,9 @@
 # `PLAN.md` — Living Execution Roadmap & Task Tracker
 
 > **Current Session Handoff Notes:**
-> - **Active Phase:** Phase 1 — Core Infrastructure, Database Schema, Multi-Tenancy, Catalog & 1-Click Recruiter Demo
-> - **Completed in Current Turn:** Phase 0 (Steps 0.1–0.5) completed and verified with 0 errors across `ruff`, `mypy --strict`, `pytest`, `tsc --noEmit`, `eslint`, and `docker compose build`.
-> - **Next Immediate Action:** Phase 1 — Implement `security.py`, `dependencies.py`, `storage.py`, all 10 SQLAlchemy 2.0 ORM models, initial Alembic migration, `tenants` & `catalog` modules, and `demo_seeder.py`.
+> - **Active Phase:** Phase 3 — Quotes, State Machine, Pessimistic Locking & Transactional Outbox (`quotes`)
+> - **Completed in Current Turn:** Phase 2 (Steps 2.1–2.4) completed and verified with 100.00% coverage on `src.modules.sizing.domain` (452/452 statements) and 0 errors across `ruff check`, `ruff format --check`, `mypy --strict`, `pytest` (17 unit & integration tests passing), `tsc --noEmit`, and `eslint`.
+> - **Next Immediate Action:** Phase 3 — Implement `quotes/state_machine.py`, `quotes/repository.py`, `quotes/service.py` (with `SELECT ... FOR UPDATE` ascending-UUID stock reservation + `WorkOrder` creation + `AuditLog` + `OutboxEvent`), `quotes/router.py`, `tests/unit/test_state_machines.py`, and `tests/integration/test_quote_concurrency.py`.
 
 ---
 
@@ -71,7 +71,7 @@ docker compose -f docker-compose.dev.yml ps
 ## Phase 1: Core Infrastructure, Database Schema, Multi-Tenancy, Catalog & 1-Click Recruiter Demo
 
 ### Tasks
-- [ ] **1.1: Core Infrastructure (`backend/src/core/`)**
+- [x] **1.1: Core Infrastructure (`backend/src/core/`)**
   - Implement `config.py` (`Settings` via `pydantic-settings`).
   - Implement `database.py` (`AsyncEngine`, `async_sessionmaker`, `Base`, `UUIDv7` generator).
   - Implement `logging.py` (`structlog` JSON processor + `CorrelationIdMiddleware` propagating `X-Correlation-ID`).
@@ -79,20 +79,20 @@ docker compose -f docker-compose.dev.yml ps
   - Implement `security.py` (Argon2id password hashing via `pwdlib` + JWT access token encode/decode).
   - Implement `dependencies.py` (`CurrentTenantContext`, `get_current_tenant_context`, `require_role`).
   - Implement `storage.py` (Async S3/MinIO client for bucket uploads and presigned URL generation).
-- [ ] **1.2: Complete ORM Models & Initial Alembic Migration**
+- [x] **1.2: Complete ORM Models & Initial Alembic Migration**
   - Implement ORM models for all 10 tables specified in `SPEC.md`: `organizations`, `users`, `catalog_items`, `customers`, `quotes`, `quote_items`, `work_orders`, `installed_serials`, `audit_logs`, `outbox_events`.
   - Wire all model metadata into `backend/alembic/env.py`.
   - Generate and apply the initial Alembic migration via CLI inside the `backend` container.
-- [ ] **1.3: Multi-Tenancy, Auth & 1-Click Recruiter Demo (`backend/src/modules/tenants/`)**
+- [x] **1.3: Multi-Tenancy, Auth & 1-Click Recruiter Demo (`backend/src/modules/tenants/`)**
   - Implement `tenants/schemas.py`, `tenants/repository.py`, `tenants/service.py`, and `tenants/router.py`.
   - Expose `POST /api/v1/auth/login`, `POST /api/v1/auth/demo-login` (`OWNER`, `TECHNICIAN`, `PUBLIC_CLIENT`), `POST /api/v1/auth/demo-reset`, and `GET /api/v1/auth/me`.
-- [ ] **1.4: Equipment Catalog Module & Role-Segregated Schemas (`backend/src/modules/catalog/`)**
+- [x] **1.4: Equipment Catalog Module & Role-Segregated Schemas (`backend/src/modules/catalog/`)**
   - Implement category-discriminated Pydantic v2 schemas (`DvrSpecs`, `AnalogCameraSpecs`, `IpCameraSpecs`, `HddSpecs`, `PowerSupplySpecs`, `PoeSwitchSpecs`, `CableSpecs`, `GenericAccessorySpecs`).
   - Implement `CatalogItemOwnerResponse` (includes `cost_price_cents`) vs `CatalogItemTechnicianResponse` (omits `cost_price_cents`).
   - Implement `catalog/repository.py`, `catalog/service.py` (enforcing `DemoProtectionError` on deleting `is_seed_protected` items), and `catalog/router.py`.
-- [ ] **1.5: Idempotent PT-BR Demo Seeder (`backend/src/seed/demo_seeder.py`)**
+- [x] **1.5: Idempotent PT-BR Demo Seeder (`backend/src/seed/demo_seeder.py`)**
   - Populate Demo Tenant (`"Bravo Segurança Eletrônica Ltda"`), Demo `OWNER` & `TECHNICIAN` users, full Intelbras/WD Purple/MCM/Condutti/Furukawa PT-BR catalog, and the 3 pre-seeded Demo Quotes & Work Orders.
-- [ ] **1.6: Phase 1 Unit & Integration Tests**
+- [x] **1.6: Phase 1 Unit & Integration Tests**
   - Write `tests/unit/test_rbac_schemas.py` verifying zero leakage of `cost_price_cents` or `margin_percent` in Technician/Public schemas.
   - Write `tests/integration/test_tenant_isolation.py` verifying cross-tenant queries return `404` and `is_seed_protected` items return `403 Problem+JSON` on delete.
 
@@ -116,15 +116,15 @@ uv run --project backend pytest backend/tests/unit/test_rbac_schemas.py backend/
 ## Phase 2: Pure Domain CCTV Engineering & Sizing Engine (`sizing`)
 
 ### Tasks
-- [ ] **2.1: Pure Domain Value Objects & Bitrate Lookup Table (`backend/src/modules/sizing/domain/`)**
+- [x] **2.1: Pure Domain Value Objects & Bitrate Lookup Table (`backend/src/modules/sizing/domain/`)**
   - Implement `value_objects.py` and `bitrate_table.py` covering `720p`, `1080p`, `4MP`, `4K` across `15`, `20`, `30` FPS and `H.264`, `H.265`, `H.265+` Smart Codec.
-- [ ] **2.2: Storage, Intelbras MHDX Hybrid Topology & Electrical Strategies**
+- [x] **2.2: Storage, Intelbras MHDX Hybrid Topology & Electrical Strategies**
   - Implement `StorageCalculationStrategy`: daily GB formula, 15% safety margin, and optimal WD Purple HDD combination selector respecting `max_sata_slots` and `max_tb_per_slot`.
   - Implement `MHDXHybridTopologyStrategy`: validates `native_bnc_channels`, `extra_ip_channels`, BNC-to-IP channel conversion, incoming bandwidth Mbps, and pure IP NVR selection.
   - Implement `ElectricalAndBomStrategy`: $1.30\times$ IR-on current draw, 12V switching PSU / PoE switch budget selection, copper cable voltage drop ($\Delta V = 2 \times L \times I \times R_{\text{meter}}$) with `< 10.8V` warning flag, and deterministic derivation of baluns, P4/BNC/RJ45 connectors, junction boxes, cable rolls (`1.15x` slack), and labor points.
-- [ ] **2.3: Sizing Service & FastAPI Endpoint (`/api/v1/sizing/calculate`)**
+- [x] **2.3: Sizing Service & FastAPI Endpoint (`/api/v1/sizing/calculate`)**
   - Implement `sizing/schemas.py`, `sizing/service.py` (matches pure domain calculation against the tenant's active `catalog_items`), and `sizing/router.py`.
-- [ ] **2.4: 100% Unit Test Coverage for Sizing Engine**
+- [x] **2.4: 100% Unit Test Coverage for Sizing Engine**
   - Write `tests/unit/test_sizing_engine.py` testing exact mathematical outputs, MHDX 4/8/16/32ch hybrid conversions, multi-SATA HDD upgrades, voltage drop warnings over long cable runs, and BOM item counts.
 
 ### Phase 2 Verification Gate

@@ -1,1 +1,1 @@
-"""Field Work Orders, Serial Number Vault, and Warranty module."""
+"""Field work orders, hardware serial vault, and warranty tracking module."""

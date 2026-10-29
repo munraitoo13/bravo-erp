@@ -1,0 +1,224 @@
+"""Pure domain value objects and candidate descriptors for the CCTV Sizing Engine."""
+
+from dataclasses import dataclass
+from typing import Literal
+
+type ResolutionLiteral = Literal["720p", "1080p", "4MP", "4K"]
+type FpsLiteral = Literal[15, 20, 30]
+type CodecLiteral = Literal["H.264", "H.265", "H.265+"]
+type CameraTechnologyLiteral = Literal["ANALOG", "IP"]
+type CablingModeLiteral = Literal["BALUN_UTP", "COAXIAL", "UTP_CAT5E", "UTP_CAT6"]
+type FormFactorLiteral = Literal["BULLET", "DOME", "SPEED_DOME"]
+type BomRoleLiteral = Literal[
+    "RECORDER",
+    "CAMERA_ANALOG",
+    "CAMERA_IP",
+    "HDD",
+    "POWER_SUPPLY",
+    "POE_SWITCH",
+    "BALUN",
+    "CONNECTOR_BNC",
+    "CONNECTOR_P4",
+    "CONNECTOR_RJ45",
+    "JUNCTION_BOX",
+    "CABLE_COAXIAL",
+    "CABLE_UTP",
+    "LABOR",
+]
+
+
+@dataclass(frozen=True)
+class CameraGroupInput:
+    """Input parameters for a homogeneous group of cameras in a sizing request."""
+
+    group_label: str
+    technology: CameraTechnologyLiteral
+    count: int
+    resolution: ResolutionLiteral
+    fps: FpsLiteral
+    codec: CodecLiteral
+    retention_days: int
+    recording_hours_per_day: float = 24.0
+    cabling_mode: CablingModeLiteral = "BALUN_UTP"
+    average_cable_meters: float = 35.0
+    form_factor: FormFactorLiteral = "BULLET"
+    ir_current_draw_ma: int | None = None
+    poe_power_watts: float | None = None
+
+
+@dataclass(frozen=True)
+class SizingEngineInput:
+    """Aggregate input specification for the CCTV Sizing Engine."""
+
+    camera_groups: tuple[CameraGroupInput, ...]
+    prefer_adjustable_psu_for_long_runs: bool = False
+
+
+@dataclass(frozen=True)
+class RecorderCandidate:
+    """Pure domain representation of an Intelbras MHDX DVR or NVD NVR SKU."""
+
+    sku: str
+    native_bnc_channels: Literal[4, 8, 16, 32]
+    extra_ip_channels: int
+    supports_bnc_to_ip_conversion: bool
+    max_sata_slots: int
+    max_tb_per_slot: int
+    max_incoming_bandwidth_mbps: int
+    supported_codecs: tuple[CodecLiteral, ...]
+    is_pure_nvr: bool
+    sale_price_cents: int
+
+
+@dataclass(frozen=True)
+class HddCandidate:
+    """Pure domain representation of a WD Purple surveillance HDD SKU."""
+
+    sku: str
+    capacity_tb: int
+    usable_capacity_gb: int
+    sale_price_cents: int
+
+
+@dataclass(frozen=True)
+class PowerSupplyCandidate:
+    """Pure domain representation of a 12V DC switching power supply SKU."""
+
+    sku: str
+    output_voltage_vdc: float
+    max_current_amps: int
+    sale_price_cents: int
+
+
+@dataclass(frozen=True)
+class PoeSwitchCandidate:
+    """Pure domain representation of a PoE network switch SKU."""
+
+    sku: str
+    poe_ports: int
+    total_poe_budget_watts: float
+    sale_price_cents: int
+
+
+@dataclass(frozen=True)
+class GroupStorageBreakdown:
+    """Storage and bitrate breakdown for a single camera group."""
+
+    group_label: str
+    camera_count: int
+    bitrate_kbps_per_camera: int
+    daily_gb_per_camera: float
+    group_retention_gb: float
+    group_bandwidth_mbps: float
+
+
+@dataclass(frozen=True)
+class SelectedHddAllocation:
+    """Selected WD Purple HDD SKU and drive quantity."""
+
+    sku: str
+    capacity_tb: int
+    quantity: int
+    total_capacity_tb: int
+    total_sale_price_cents: int
+
+
+@dataclass(frozen=True)
+class StorageCalculationResult:
+    """Output of the storage and WD Purple HDD selection strategy."""
+
+    group_breakdowns: tuple[GroupStorageBreakdown, ...]
+    raw_retention_gb: float
+    total_required_gb_with_margin: float
+    required_nominal_tb: int
+    selected_hdds: tuple[SelectedHddAllocation, ...]
+    total_selected_tb: int
+    sata_slots_used: int
+
+
+@dataclass(frozen=True)
+class TopologySelectionResult:
+    """Output of the Intelbras MHDX hybrid channel & NVR topology strategy."""
+
+    selected_recorder_sku: str
+    is_pure_nvr: bool
+    analog_cameras_count: int
+    ip_cameras_count: int
+    total_cameras_count: int
+    native_bnc_channels: int
+    extra_ip_channels: int
+    bnc_channels_used_by_analog: int
+    bnc_channels_converted_to_ip: int
+    total_supported_channels: int
+    channel_utilization_percent: float
+    total_incoming_bandwidth_mbps: float
+    max_incoming_bandwidth_mbps: int
+    max_sata_slots: int
+    max_tb_per_slot: int
+
+
+@dataclass(frozen=True)
+class VoltageDropWarning:
+    """Engineering warning emitted when copper cable voltage drop causes V_load < 10.8V."""
+
+    group_label: str
+    cabling_mode: CablingModeLiteral
+    distance_meters: float
+    current_amps: float
+    resistance_ohm_per_meter: float
+    voltage_drop_volts: float
+    voltage_at_load_volts: float
+    min_operating_voltage_volts: float
+    recommendation_pt_br: str
+
+
+@dataclass(frozen=True)
+class SelectedEquipmentQuantity:
+    """Selected auxiliary power or PoE switch SKU and quantity."""
+
+    sku: str
+    quantity: int
+    capacity_per_unit: float
+    sale_price_cents: int
+
+
+@dataclass(frozen=True)
+class DerivedBomRequirement:
+    """Abstract bill-of-materials requirement generated by the pure domain engine."""
+
+    role: BomRoleLiteral
+    quantity: int
+    is_auto_derived: bool
+    sku_hint: str | None = None
+    resolution_hint: ResolutionLiteral | None = None
+    form_factor_hint: FormFactorLiteral | None = None
+    sub_type_hint: str | None = None
+    cable_type_hint: str | None = None
+    notes_pt_br: str = ""
+
+
+@dataclass(frozen=True)
+class ElectricalAndBomResult:
+    """Output of the electrical current draw, voltage drop, and auto-BOM strategy."""
+
+    analog_raw_current_amps: float
+    analog_required_current_amps_with_headroom: float
+    selected_power_supplies: tuple[SelectedEquipmentQuantity, ...]
+    ip_raw_power_watts: float
+    ip_required_poe_watts_with_headroom: float
+    selected_poe_switches: tuple[SelectedEquipmentQuantity, ...]
+    voltage_drop_warnings: tuple[VoltageDropWarning, ...]
+    coaxial_cable_meters_with_slack: int
+    coaxial_cable_rolls_100m: int
+    utp_cable_meters_with_slack: int
+    utp_cable_boxes_305m: int
+    derived_bom: tuple[DerivedBomRequirement, ...]
+
+
+@dataclass(frozen=True)
+class SizingEngineResult:
+    """Complete deterministic output of the pure CCTV Sizing Engine."""
+
+    topology: TopologySelectionResult
+    storage: StorageCalculationResult
+    electrical_and_bom: ElectricalAndBomResult

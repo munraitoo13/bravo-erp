@@ -33,10 +33,10 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest-dev
     container_name: bravo-erp-minio
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_secret}
@@ -46,13 +46,13 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9000/minio/health/live"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   minio-setup:
-    image: minio/mc:latest
+    image: cgr.dev/chainguard/minio-client:latest-dev
     container_name: bravo-erp-minio-setup
     depends_on:
       minio:

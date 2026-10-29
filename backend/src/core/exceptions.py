@@ -73,6 +73,20 @@ class ValidationError(DomainValidationError):
     """Alias for DomainValidationError used across domain specifications."""
 
 
+class StorageCapacityExceededError(DomainValidationError):
+    """Raised when required storage TB exceeds the capacity of all compatible recorders."""
+
+    error_slug = "storage-capacity-exceeded"
+    title = "Storage Capacity Exceeded"
+
+
+class TopologyIncompatibleError(DomainValidationError):
+    """Raised when no recorder in the catalog can satisfy the requested camera topology."""
+
+    error_slug = "topology-incompatible"
+    title = "Camera Topology Incompatible With Available Recorders"
+
+
 class InsufficientStockError(DomainError):
     """Raised during quote approval when available physical stock is insufficient."""
 

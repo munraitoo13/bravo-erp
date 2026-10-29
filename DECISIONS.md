@@ -125,9 +125,10 @@
     - Automatic container rebuild whenever an agent runs `uv add` or `pnpm add` on the host.
   - **Cons:**
     - Requires running `docker compose -f docker-compose.dev.yml down -v` if anonymous volumes ever need a full manual purge.
-  - **Implementation Nuances (Phase 0):**
+  - **Implementation Nuances (Phase 0 & Phase 1):**
     - `backend/pyproject.toml` configures `[tool.uv.build-backend]` with `module-name = "src"`, `module-root = ""`, a PEP 561 `backend/src/py.typed` marker, and `mypy_path = "$MYPY_CONFIG_FILE_DIR"` so `mypy --strict` works identically whether invoked from the repo root or inside `backend/`.
     - `frontend/Dockerfile.dev` passes `--config.strict-dep-builds=false` to `pnpm install --frozen-lockfile` so `pnpm v11` does not abort non-interactive container builds on optional native resolver postinstall scripts (`unrs-resolver`).
+    - Because upstream `minio/minio` and `minio/mc` images on Docker Hub/Quay now require registry authentication, `docker-compose.dev.yml` uses Chainguard's public, hardened `cgr.dev/chainguard/minio:latest-dev` and `cgr.dev/chainguard/minio-client:latest-dev` images, and maps host `POSTGRES_PORT` (`5433` in local `.env` when `5432` is occupied by other host containers).
 
 ---
 
