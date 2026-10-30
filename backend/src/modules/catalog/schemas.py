@@ -219,8 +219,7 @@ class CatalogItemTechnicianResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
+    @computed_field
     def available_quantity(self) -> int:
         """Compute physical stock minus reserved stock."""
         return self.stock_quantity - self.reserved_quantity

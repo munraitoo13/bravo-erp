@@ -33,6 +33,7 @@ class WorkOrderStatus(StrEnum):
     SCHEDULED = "SCHEDULED"
     IN_FIELD = "IN_FIELD"
     COMPLETED = "COMPLETED"
+    CANCELED = "CANCELED"
 
 
 class WorkOrder(Base):

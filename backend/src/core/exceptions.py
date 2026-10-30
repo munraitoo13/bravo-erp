@@ -1,11 +1,15 @@
 """Typed domain exception hierarchy and RFC 7807 Problem Details exception handlers."""
 
+import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.core.logging import CORRELATION_ID_HEADER, get_correlation_id
+
+logger: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 PROBLEM_JSON_MEDIA_TYPE = "application/problem+json"
 ERROR_BASE_URI = "https://bravo-erp.dev/errors"
@@ -190,7 +194,76 @@ async def request_validation_error_handler(request: Request, exc: Exception) -> 
     )
 
 
+async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Convert Starlette/FastAPI HTTPException into an RFC 7807 problem details response."""
+    http_exc = (
+        exc
+        if isinstance(exc, StarletteHTTPException)
+        else StarletteHTTPException(status_code=500, detail="Internal server error")
+    )
+    correlation_id = getattr(request.state, "correlation_id", None) or get_correlation_id()
+    slug_map: dict[int, str] = {
+        400: "bad-request",
+        401: "unauthorized",
+        403: "forbidden",
+        404: "resource-not-found",
+        405: "method-not-allowed",
+        409: "conflict",
+        422: "unprocessable-content",
+        429: "too-many-requests",
+        500: "internal-server-error",
+    }
+    error_slug = slug_map.get(http_exc.status_code, f"http-{http_exc.status_code}")
+    title = (
+        http_exc.detail
+        if isinstance(http_exc.detail, str) and len(http_exc.detail) < 60
+        else "HTTP Error"
+    )
+    detail = str(http_exc.detail) if http_exc.detail else "An HTTP error occurred."
+    problem = ProblemDetails(
+        type=f"{ERROR_BASE_URI}/{error_slug}",
+        title=title,
+        status=http_exc.status_code,
+        detail=detail,
+        instance=request.url.path,
+        correlation_id=correlation_id,
+        errors=[],
+    )
+    headers = {CORRELATION_ID_HEADER: correlation_id}
+    if http_exc.headers:
+        headers.update(http_exc.headers)
+    return JSONResponse(
+        status_code=http_exc.status_code,
+        content=problem.model_dump(exclude_none=True),
+        media_type=PROBLEM_JSON_MEDIA_TYPE,
+        headers=headers,
+    )
+
+
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch-all handler converting unexpected exceptions into RFC 7807 500 Problem Details."""
+    correlation_id = getattr(request.state, "correlation_id", None) or get_correlation_id()
+    logger.error("unhandled_server_exception", error=str(exc), path=request.url.path)
+    problem = ProblemDetails(
+        type=f"{ERROR_BASE_URI}/internal-server-error",
+        title="Internal Server Error",
+        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="An unexpected internal server error occurred. Please contact system support.",
+        instance=request.url.path,
+        correlation_id=correlation_id,
+        errors=[{"reason": "unhandled_exception"}],
+    )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=problem.model_dump(exclude_none=True),
+        media_type=PROBLEM_JSON_MEDIA_TYPE,
+        headers={CORRELATION_ID_HEADER: correlation_id},
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Register RFC 7807 exception handlers on the FastAPI application instance."""
     app.add_exception_handler(DomainError, domain_error_handler)
     app.add_exception_handler(RequestValidationError, request_validation_error_handler)
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    app.add_exception_handler(Exception, unhandled_exception_handler)

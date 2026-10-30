@@ -379,6 +379,11 @@ export const quotesApi = {
       method: "POST",
     }),
 
+  revise: (quoteId: string): Promise<QuoteOwnerResponse> =>
+    apiRequest<QuoteOwnerResponse>(`/quotes/${quoteId}/revise`, {
+      method: "POST",
+    }),
+
   getPublicQuote: (publicToken: string): Promise<QuotePublicResponse> =>
     apiRequest<QuotePublicResponse>(`/public/quotes/${publicToken}`, {
       skipAuth: true,

@@ -58,7 +58,6 @@ dev = [
 target-version = "py312"
 line-length = 100
 src = ["src", "tests"]
-exclude = ["migrations"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "N", "RUF"]

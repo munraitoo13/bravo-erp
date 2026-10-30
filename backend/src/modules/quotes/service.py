@@ -15,6 +15,7 @@ from src.core.exceptions import (
     DomainValidationError,
     ErrorDetailItem,
     InsufficientStockError,
+    InvalidStateTransitionError,
     ResourceNotFoundError,
 )
 from src.core.logging import get_correlation_id
@@ -773,6 +774,43 @@ class QuoteService:
             current_version=quote.version,
         )
 
+        child_wo = await self._repo.get_work_order_by_quote_id(
+            ctx.organization_id,
+            quote.id,
+        )
+        if child_wo is not None:
+            if child_wo.status in {WorkOrderStatus.IN_FIELD, WorkOrderStatus.COMPLETED}:
+                raise InvalidStateTransitionError(
+                    detail=(
+                        f"Cannot cancel Quote '{quote.id}' because its child WorkOrder "
+                        f"'{child_wo.id}' is already in status '{child_wo.status.value}'."
+                    ),
+                    errors=[
+                        {
+                            "quote_id": str(quote.id),
+                            "work_order_id": str(child_wo.id),
+                            "work_order_status": child_wo.status.value,
+                            "reason": "child_work_order_active_or_completed",
+                        }
+                    ],
+                )
+            child_wo.status = WorkOrderStatus.CANCELED
+            await self._repo.add_audit_log(
+                AuditLog(
+                    organization_id=ctx.organization_id,
+                    entity_type="WORK_ORDER",
+                    entity_id=child_wo.id,
+                    action="STATE_TRANSITION",
+                    actor_user_id=ctx.user_id,
+                    actor_ip=normalize_client_ip(actor_ip),
+                    previous_state={"status": child_wo.status.value},
+                    new_state={
+                        "status": WorkOrderStatus.CANCELED.value,
+                        "reason": "parent_quote_canceled",
+                    },
+                )
+            )
+
         if diff.requires_stock_release:
             release_by_catalog_id: dict[UUID, int] = defaultdict(int)
             for line in quote.items:
@@ -822,6 +860,68 @@ class QuoteService:
             quote_id=str(reloaded.id),
             organization_id=str(ctx.organization_id),
             released_reserved_stock=diff.requires_stock_release,
+        )
+        return serialize_quote_for_owner(
+            reloaded,
+            pdf_download_url=pdf_url,
+            work_order_id=wo_id,
+            audit_logs=logs,
+        )
+
+    async def revise_quote(
+        self,
+        ctx: CurrentTenantContext,
+        quote_id: UUID,
+        *,
+        actor_ip: str | None = None,
+    ) -> QuoteOwnerResponse:
+        """Revise a SENT or EXPIRED quote back to DRAFT state for editing (OWNER only)."""
+        quote = await self._repo.get_quote_by_id(
+            ctx.organization_id,
+            quote_id,
+            for_update=True,
+        )
+        if quote is None:
+            raise ResourceNotFoundError(
+                detail=f"Quote '{quote_id}' was not found in this organization.",
+                errors=[{"quote_id": str(quote_id)}],
+            )
+
+        diff = QuoteStateMachine.transition_to_draft(
+            quote.status,
+            current_version=quote.version,
+        )
+        quote.status = QuoteStatus.DRAFT
+        quote.version += 1
+
+        audit_log = AuditLog(
+            organization_id=ctx.organization_id,
+            entity_type="QUOTE",
+            entity_id=quote.id,
+            action="STATE_TRANSITION",
+            actor_user_id=ctx.user_id,
+            actor_ip=normalize_client_ip(actor_ip),
+            previous_state=diff.previous_state,
+            new_state=diff.new_state,
+        )
+        await self._repo.add_audit_log(audit_log)
+        await self._session.commit()
+
+        reloaded = await self._repo.get_quote_by_id(ctx.organization_id, quote.id)
+        if reloaded is None:  # pragma: no cover
+            raise ResourceNotFoundError(detail="Revised quote could not be reloaded.")
+        logs = await self._repo.list_audit_logs_for_entity(
+            ctx.organization_id,
+            "QUOTE",
+            reloaded.id,
+        )
+        pdf_url = await self._resolve_pdf_url(reloaded)
+        wo_id = reloaded.work_order.id if reloaded.work_order is not None else None
+        logger.info(
+            "quote_revised_to_draft",
+            quote_id=str(reloaded.id),
+            organization_id=str(ctx.organization_id),
+            new_version=reloaded.version,
         )
         return serialize_quote_for_owner(
             reloaded,

@@ -512,23 +512,51 @@ export default function WorkOrderExecutionPage(): React.JSX.Element {
                 liberar a conclusão da O.S.
               </p>
             ) : (
-              <div className="space-y-1.5">
-                {wo.installation_photos_keys.map((key, idx) => (
-                  <div
-                    key={key}
-                    className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 flex items-center justify-between text-xs"
-                  >
-                    <span className="font-mono text-[11px] truncate max-w-xs">
-                      #{idx + 1}: {key}
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className="bg-emerald-50 text-emerald-800 border-emerald-200"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {wo.installation_photos_keys.map((key, idx) => {
+                  const presignedUrl = wo.installation_photo_urls[idx];
+                  return (
+                    <div
+                      key={key}
+                      className="rounded-lg bg-slate-50 border border-slate-200 p-2.5 flex flex-col justify-between text-xs gap-2"
                     >
-                      Salvo no MinIO
-                    </Badge>
-                  </div>
-                ))}
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-mono text-[11px] truncate max-w-[200px] text-slate-700">
+                          #{idx + 1}: {key.split("/").pop()}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px]"
+                        >
+                          MinIO
+                        </Badge>
+                      </div>
+
+                      {presignedUrl ? (
+                        <a
+                          href={presignedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group relative block aspect-video w-full overflow-hidden rounded bg-slate-200 border border-slate-200"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={presignedUrl}
+                            alt={`Foto de Instalação #${idx + 1}`}
+                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-medium">
+                            Abrir Foto Original ↗
+                          </div>
+                        </a>
+                      ) : (
+                        <div className="aspect-video w-full rounded bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 text-[11px]">
+                          Preview Indisponível
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>

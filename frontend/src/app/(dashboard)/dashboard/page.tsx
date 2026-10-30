@@ -364,7 +364,7 @@ export default function DashboardPage(): React.JSX.Element {
                       </Badge>
                     </div>
                     <p className="text-xs text-slate-500">
-                      Valor Venta:{" "}
+                      Valor de Venda:{" "}
                       <strong className="text-slate-800">
                         {formatCentsToBrl(quote.total_sale_cents)}
                       </strong>

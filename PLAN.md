@@ -2,8 +2,8 @@
 
 > **Current Session Handoff Notes:**
 > - **Active Phase:** Phase 6: Post-Audit Hardening, Security & Production Readiness
-> - **Completed in Current Turn:** Milestones 6.1 (Living Documentation Synchronization) and 6.2 (P0 Security Vulnerabilities & Demo Blocker Remediation) completed and verified across all Quality Gates (ruff check/format, mypy --strict, pytest Testcontainers, tsc, eslint, docker-compose config).
-> - **Next Immediate Action:** Ready to proceed with Milestone 6.3 (Domain Invariants, RFC 7807 Catch-All & Zero-Ignore Typing) and Milestone 6.4 (UX & Recruiter Demo Polish).
+> - **Completed in Current Turn:** Milestones 6.1, 6.2, 6.3 (Domain Invariants, RFC 7807 Catch-All & Zero-Ignore Typing), and 6.4 (UX & Recruiter Demo Polish) completed and verified across all Quality Gates (ruff check/format, mypy --strict, pytest Testcontainers, tsc, eslint, docker-compose config).
+> - **Next Immediate Action:** Ready to proceed with Milestone 6.5 (Edge-Case Test Expansion & Production Deployment Assets).
 
 ---
 
@@ -246,13 +246,13 @@ pnpm --dir frontend build
   - [x] **P0-3:** Add `scheduler` container to `docker-compose.dev.yml` running `uv run taskiq scheduler src.worker:scheduler`. Trigger `await poll_outbox_events_task.kiq()` immediately after successful database commits in `QuoteService` (`send_quote`, `_execute_atomic_approval`) and `WorkOrderService` (`complete_work_order`).
   - [x] **P0-4:** Harden Outbox Relay against S3 failures in `outbox_relay.py`: wrap each event in atomic savepoint (`async with session.begin_nested():`), broaden exception handler to capture all base exceptions (including botocore exceptions), increment `retry_count`, apply exponential `next_retry_at`, and recover stale `PROCESSING` events.
   - [x] **P0-5:** Seed real MinIO assets in demo tenant (`demo_seeder.py`): generate and upload real WeasyPrint PDF payloads for Quote #1 and Quote #3, and seed valid sample JPEG bytes for Work Orders #2 and #3 when storage is reachable.
-- [ ] **6.3: Domain Invariants, RFC 7807 Catch-All & Zero-Ignore Typing (P1)**
+- [x] **6.3: Domain Invariants, RFC 7807 Catch-All & Zero-Ignore Typing (P1)**
   - Cascade WorkOrder cancellation when an `APPROVED` quote is canceled; block WorkOrder execution on canceled quotes.
   - Require `WorkOrderStatus.IN_FIELD` for field execution and validate that registered serials match quote hardware.
   - Expose `POST /api/v1/quotes/{id}/revise` endpoint matching `QuoteStateMachine`.
   - Register global RFC 7807 catch-all exception handler for Starlette `HTTPException` and unhandled exceptions.
   - Eliminate `# type: ignore` comments in schemas and cache Argon2id password hash in `demo_seeder.py`.
-- [ ] **6.4: UX & Recruiter Demo Polish (P2)**
+- [x] **6.4: UX & Recruiter Demo Polish (P2)**
   - Render clickable preview links for `installation_photo_urls` in `work-orders/[id]/page.tsx`.
   - Add 1-Click Persona Switcher controls to `PublicQuotePortal` with seamless persona hand-off.
   - Fix `"Valor Venta"` typo to `"Valor de Venda:"` in `dashboard/page.tsx`.

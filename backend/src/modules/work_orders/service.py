@@ -63,6 +63,35 @@ def _sanitize_filename(filename: str) -> str:
     return cleaned or "instalacao.jpg"
 
 
+def _validate_work_order_active(work_order: WorkOrder) -> None:
+    """Validate that the WorkOrder and its parent Quote are not canceled."""
+    if work_order.status == WorkOrderStatus.CANCELED:
+        raise InvalidStateTransitionError(
+            detail=f"Cannot perform operations on a CANCELED WorkOrder '{work_order.id}'.",
+            errors=[
+                {
+                    "entity_type": "WORK_ORDER",
+                    "current_status": work_order.status.value,
+                    "reason": "work_order_canceled",
+                }
+            ],
+        )
+    if work_order.quote is not None and work_order.quote.status == QuoteStatus.CANCELED:
+        raise InvalidStateTransitionError(
+            detail=(
+                f"Cannot perform operations on WorkOrder '{work_order.id}' because "
+                f"its parent Quote '{work_order.quote_id}' is CANCELED."
+            ),
+            errors=[
+                {
+                    "entity_type": "WORK_ORDER",
+                    "quote_status": work_order.quote.status.value,
+                    "reason": "parent_quote_canceled",
+                }
+            ],
+        )
+
+
 def _mask_document(doc: str) -> str:
     """Partially mask CPF/CNPJ for public cryptographic verification display."""
     cleaned = doc.strip()
@@ -245,6 +274,8 @@ class WorkOrderService:
                 errors=[{"work_order_id": str(work_order_id)}],
             )
 
+        _validate_work_order_active(work_order)
+
         tech_id = payload.assigned_technician_id or work_order.assigned_technician_id
         if tech_id is not None:
             tech_user = await self._repo.get_user_by_id(ctx.organization_id, tech_id)
@@ -301,6 +332,8 @@ class WorkOrderService:
                 detail=f"Work order '{work_order_id}' was not found in this organization.",
                 errors=[{"work_order_id": str(work_order_id)}],
             )
+
+        _validate_work_order_active(work_order)
 
         quote = await self._repo.get_quote_for_update(ctx.organization_id, work_order.quote_id)
         if quote is None:  # pragma: no cover
@@ -394,14 +427,20 @@ class WorkOrderService:
                 errors=[{"work_order_id": str(work_order_id)}],
             )
 
-        if work_order.status == WorkOrderStatus.COMPLETED:
+        _validate_work_order_active(work_order)
+
+        if work_order.status != WorkOrderStatus.IN_FIELD:
             raise InvalidStateTransitionError(
-                detail="Cannot modify checklist or field notes of a COMPLETED WorkOrder.",
+                detail=(
+                    f"Cannot modify checklist of WorkOrder '{work_order_id}' with status "
+                    f"'{work_order.status.value}'. WorkOrder must be in IN_FIELD status."
+                ),
                 errors=[
                     {
                         "entity_type": "WORK_ORDER",
                         "current_status": work_order.status.value,
-                        "reason": "work_order_already_completed",
+                        "required_status": WorkOrderStatus.IN_FIELD.value,
+                        "reason": "work_order_not_in_field",
                     }
                 ],
             )
@@ -495,14 +534,20 @@ class WorkOrderService:
                 errors=[{"work_order_id": str(work_order_id)}],
             )
 
-        if work_order.status == WorkOrderStatus.COMPLETED:
+        _validate_work_order_active(work_order)
+
+        if work_order.status != WorkOrderStatus.IN_FIELD:
             raise InvalidStateTransitionError(
-                detail="Cannot upload photos to a COMPLETED WorkOrder.",
+                detail=(
+                    f"Cannot upload photos to WorkOrder '{work_order_id}' with status "
+                    f"'{work_order.status.value}'. WorkOrder must be in IN_FIELD status."
+                ),
                 errors=[
                     {
                         "entity_type": "WORK_ORDER",
                         "current_status": work_order.status.value,
-                        "reason": "work_order_already_completed",
+                        "required_status": WorkOrderStatus.IN_FIELD.value,
+                        "reason": "work_order_not_in_field",
                     }
                 ],
             )
@@ -608,28 +653,60 @@ class WorkOrderService:
                 errors=[{"work_order_id": str(work_order_id)}],
             )
 
-        if work_order.status == WorkOrderStatus.COMPLETED:
+        _validate_work_order_active(work_order)
+
+        if work_order.status != WorkOrderStatus.IN_FIELD:
             raise InvalidStateTransitionError(
-                detail="Cannot register hardware serial numbers on a COMPLETED WorkOrder.",
+                detail=(
+                    f"Cannot register hardware serial numbers on WorkOrder '{work_order_id}' "
+                    f"with status '{work_order.status.value}'. "
+                    f"WorkOrder must be in IN_FIELD status."
+                ),
                 errors=[
                     {
                         "entity_type": "WORK_ORDER",
                         "current_status": work_order.status.value,
-                        "reason": "work_order_already_completed",
+                        "required_status": WorkOrderStatus.IN_FIELD.value,
+                        "reason": "work_order_not_in_field",
                     }
                 ],
             )
 
-        catalog_item = await self._repo.get_catalog_item_by_id(
-            ctx.organization_id,
-            payload.catalog_item_id,
+        quote = work_order.quote
+        quote_item_match = next(
+            (item for item in quote.items if item.catalog_item_id == payload.catalog_item_id),
+            None,
         )
-        if catalog_item is None:
-            raise ResourceNotFoundError(
+        if quote_item_match is None:
+            raise DomainValidationError(
                 detail=(
-                    f"Catalog item '{payload.catalog_item_id}' was not found in this organization."
+                    f"Catalog item '{payload.catalog_item_id}' is not part of the equipment "
+                    f"list in parent Quote '{quote.id}'."
                 ),
-                errors=[{"catalog_item_id": str(payload.catalog_item_id)}],
+                errors=[
+                    {
+                        "catalog_item_id": str(payload.catalog_item_id),
+                        "quote_id": str(quote.id),
+                        "reason": "catalog_item_not_in_quote",
+                    }
+                ],
+            )
+
+        catalog_item = quote_item_match.catalog_item
+        requires_sn = bool(catalog_item.specs.get("requires_serial_number", False))
+        if not requires_sn:
+            raise DomainValidationError(
+                detail=(
+                    f"Catalog item '{catalog_item.name_pt_br}' (SKU: {catalog_item.sku}) "
+                    f"does not require a hardware serial number."
+                ),
+                errors=[
+                    {
+                        "catalog_item_id": str(catalog_item.id),
+                        "sku": catalog_item.sku,
+                        "reason": "item_does_not_require_serial",
+                    }
+                ],
             )
 
         normalized_sn = payload.serial_number.strip().upper()
@@ -652,7 +729,7 @@ class WorkOrderService:
                 ],
             )
 
-        today = date.today()
+        today = datetime.now(UTC).date()
         raw_months = catalog_item.specs.get("distributor_warranty_months", 12)
         dist_months = int(raw_months) if isinstance(raw_months, (int, float)) else 12
         dist_days = round(dist_months * 365 / 12)
@@ -725,6 +802,8 @@ class WorkOrderService:
                 detail=f"Work order '{work_order_id}' was not found in this organization.",
                 errors=[{"work_order_id": str(work_order_id)}],
             )
+
+        _validate_work_order_active(work_order)
 
         quote = await self._repo.get_quote_for_update(ctx.organization_id, work_order.quote_id)
         if quote is None:  # pragma: no cover

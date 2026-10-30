@@ -100,8 +100,7 @@ class QuoteItemPublicResponse(BaseModel):
     unit_sale_cents: int
     is_auto_derived: bool
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
+    @computed_field
     def line_total_sale_cents(self) -> int:
         """Exact integer total sale price for this line item in centavos."""
         return self.quantity * self.unit_sale_cents
@@ -116,8 +115,7 @@ class QuoteItemOwnerResponse(QuoteItemPublicResponse):
 
     unit_cost_cents: int
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
+    @computed_field
     def line_total_cost_cents(self) -> int:
         """Exact integer total cost for this line item in centavos."""
         return self.quantity * self.unit_cost_cents

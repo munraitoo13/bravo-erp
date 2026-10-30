@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -13,6 +14,8 @@ import {
   Lock,
   ShieldCheck,
   Sparkles,
+  UserCheck,
+  Wrench,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +42,7 @@ import {
   quotesApi,
   toastProblemError,
 } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
 import {
   CATEGORY_LABELS_PT_BR,
   QUOTE_STATUS_LABELS_PT_BR,
@@ -53,7 +57,9 @@ export function PublicQuotePortal({
 }: {
   readonly publicToken: string;
 }): React.JSX.Element {
+  const router = useRouter();
   const queryClient = useQueryClient();
+  const { loginWithDemoPersona, isSwitchingDemo } = useAuth();
   const [clientNotes, setClientNotes] = useState<string>("");
   const [lastProblem, setLastProblem] = useState<ProblemDetails | null>(null);
 
@@ -133,16 +139,31 @@ export function PublicQuotePortal({
 
           <div className="flex items-center gap-2">
             {quote.work_order_id && (
-              <Link href={`/work-orders/${quote.work_order_id}`}>
-                <Button
-                  size="xs"
-                  className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold gap-1"
-                >
-                  <ClipboardList className="size-3" />
-                  Executar O.S. Gerada (Visão Técnico)
-                </Button>
-              </Link>
+              <Button
+                size="xs"
+                disabled={isSwitchingDemo}
+                onClick={async () => {
+                  await loginWithDemoPersona("TECHNICIAN", { redirect: false });
+                  router.push(`/work-orders/${quote.work_order_id}`);
+                }}
+                className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold gap-1"
+              >
+                <Wrench className="size-3" />
+                Executar O.S. (Visão Técnico)
+              </Button>
             )}
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={isSwitchingDemo}
+              onClick={async () => {
+                await loginWithDemoPersona("OWNER", { redirect: true });
+              }}
+              className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 gap-1"
+            >
+              <UserCheck className="size-3" />
+              Entrar como Proprietário
+            </Button>
             <Link href="/dashboard">
               <Button
                 size="xs"
@@ -150,7 +171,7 @@ export function PublicQuotePortal({
                 className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 gap-1"
               >
                 <ArrowLeft className="size-3" />
-                Voltar ao ERP Interno
+                ERP Interno
               </Button>
             </Link>
           </div>

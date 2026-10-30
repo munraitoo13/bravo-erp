@@ -27,7 +27,12 @@ export type QuoteStatus =
   | "CANCELED"
   | "EXPIRED";
 
-export type WorkOrderStatus = "PENDING" | "SCHEDULED" | "IN_FIELD" | "COMPLETED";
+export type WorkOrderStatus =
+  | "PENDING"
+  | "SCHEDULED"
+  | "IN_FIELD"
+  | "COMPLETED"
+  | "CANCELED";
 
 export type CameraTechnology = "ANALOG" | "IP";
 export type Resolution = "720p" | "1080p" | "4MP" | "4K";

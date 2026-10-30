@@ -155,8 +155,7 @@ class SizingBomLineTechnicianResponse(BaseModel):
     is_auto_derived: bool
     notes_pt_br: str
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
+    @computed_field
     def line_total_sale_cents(self) -> int:
         """Exact integer total sale price for this BOM line."""
         return self.quantity * self.unit_sale_cents
@@ -167,8 +166,7 @@ class SizingBomLineOwnerResponse(SizingBomLineTechnicianResponse):
 
     unit_cost_cents: int
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
+    @computed_field
     def line_total_cost_cents(self) -> int:
         """Exact integer total cost price for this BOM line."""
         return self.quantity * self.unit_cost_cents

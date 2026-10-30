@@ -90,6 +90,7 @@ export const WORK_ORDER_STATUS_LABELS_PT_BR: Readonly<
   SCHEDULED: "Agendada",
   IN_FIELD: "Em Campo (Execução)",
   COMPLETED: "Concluída",
+  CANCELED: "Cancelada",
 };
 
 export const ROLE_LABELS_PT_BR: Readonly<Record<UserRole, string>> = {

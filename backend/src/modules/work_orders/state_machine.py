@@ -13,10 +13,13 @@ from src.core.exceptions import (
 from src.modules.work_orders.models import WorkOrderStatus
 
 ALLOWED_WORK_ORDER_TRANSITIONS: dict[WorkOrderStatus, frozenset[WorkOrderStatus]] = {
-    WorkOrderStatus.PENDING: frozenset({WorkOrderStatus.SCHEDULED, WorkOrderStatus.IN_FIELD}),
-    WorkOrderStatus.SCHEDULED: frozenset({WorkOrderStatus.IN_FIELD}),
+    WorkOrderStatus.PENDING: frozenset(
+        {WorkOrderStatus.SCHEDULED, WorkOrderStatus.IN_FIELD, WorkOrderStatus.CANCELED}
+    ),
+    WorkOrderStatus.SCHEDULED: frozenset({WorkOrderStatus.IN_FIELD, WorkOrderStatus.CANCELED}),
     WorkOrderStatus.IN_FIELD: frozenset({WorkOrderStatus.COMPLETED}),
     WorkOrderStatus.COMPLETED: frozenset(),
+    WorkOrderStatus.CANCELED: frozenset(),
 }
 
 
@@ -129,6 +132,21 @@ class WorkOrderStateMachine:
             current,
             WorkOrderStatus.IN_FIELD,
             new_extra=new_extra,
+        )
+
+    @classmethod
+    def transition_to_canceled(
+        cls,
+        current: WorkOrderStatus,
+        *,
+        reason: str | None = None,
+    ) -> WorkOrderStateTransitionDiff:
+        """Validate and construct transition to CANCELED (cascaded from Quote cancellation)."""
+        cls.validate_transition(current, WorkOrderStatus.CANCELED)
+        return cls.build_audit_diff(
+            current,
+            WorkOrderStatus.CANCELED,
+            new_extra={"reason": reason or "quote_canceled"},
         )
 
     @staticmethod

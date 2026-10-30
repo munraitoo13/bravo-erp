@@ -165,6 +165,20 @@ async def cancel_quote(
     return await service.cancel_quote(ctx, quote_id, actor_ip=_extract_client_ip(request))
 
 
+@router.post(
+    "/quotes/{quote_id}/revise",
+    response_model=QuoteOwnerResponse,
+)
+async def revise_quote(
+    quote_id: UUID,
+    request: Request,
+    ctx: Annotated[CurrentTenantContext, Depends(require_role(UserRole.OWNER))],
+    service: Annotated[QuoteService, Depends(get_quote_service)],
+) -> QuoteOwnerResponse:
+    """Revise a SENT or EXPIRED quote back to DRAFT for editing (OWNER only)."""
+    return await service.revise_quote(ctx, quote_id, actor_ip=_extract_client_ip(request))
+
+
 @router.get(
     "/public/quotes/{public_token}",
     response_model=QuotePublicResponse,

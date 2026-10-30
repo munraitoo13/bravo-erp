@@ -1,7 +1,7 @@
 """Integration tests for Work Orders, Serial Vault, Outbox Relay, WeasyPrint PDF, and Warranties."""
 
 import hashlib
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -217,7 +217,7 @@ async def test_end_to_end_quote_approval_work_order_completion_pdf_and_sha256_ve
     assert reg_sn_resp.status_code == 201
     reg_sn_data = reg_sn_resp.json()
     assert reg_sn_data["serial_number"] == "ITB-VHL1120-004914"
-    expected_warranty = (date.today() + timedelta(days=365)).isoformat()
+    expected_warranty = (datetime.now(UTC).date() + timedelta(days=365)).isoformat()
     assert reg_sn_data["client_warranty_until"] == expected_warranty
     assert reg_sn_data["distributor_warranty_until"] == expected_warranty
 
