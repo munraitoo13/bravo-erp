@@ -63,7 +63,7 @@ jobs:
         run: uv run --project backend pytest backend/tests -v
 
   frontend-quality-gate:
-    name: Frontend (Node 20 + pnpm + tsc + eslint + next build)
+    name: Frontend (Node 22 + pnpm + tsc + eslint + next build)
     runs-on: ubuntu-latest
 
     steps:
@@ -73,12 +73,12 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "pnpm"
           cache-dependency-path: "frontend/pnpm-lock.yaml"
 
