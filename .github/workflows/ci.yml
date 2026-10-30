@@ -1,0 +1,97 @@
+name: CI Quality Gate
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-quality-gate:
+    name: Backend (Python 3.12 + ruff + mypy --strict + pytest Testcontainers)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install System Dependencies for WeasyPrint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 \
+            libharfbuzz0b \
+            libpangoft2-1.0-0 \
+            libpangocairo-1.0-0 \
+            libcairo2 \
+            libgdk-pixbuf-2.0-0 \
+            shared-mime-info
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync Dependencies
+        run: uv sync --project backend
+
+      - name: Run Ruff Lint Check
+        run: uv run --project backend ruff check backend/src backend/tests
+
+      - name: Run Ruff Format Check
+        run: uv run --project backend ruff format --check backend/src backend/tests
+
+      - name: Run Mypy Strict Static Typecheck
+        run: uv run --project backend mypy --config-file backend/pyproject.toml backend/src backend/tests --strict
+
+      - name: Run Automated Test Suite (PostgreSQL Testcontainers)
+        run: uv run --project backend pytest backend/tests -v
+
+  frontend-quality-gate:
+    name: Frontend (Node 20 + pnpm + tsc + eslint + next build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: "frontend/pnpm-lock.yaml"
+
+      - name: Install Dependencies
+        run: pnpm --dir frontend install --frozen-lockfile
+
+      - name: TypeScript Typecheck
+        run: pnpm --dir frontend tsc --noEmit
+
+      - name: ESLint
+        run: pnpm --dir frontend lint
+
+      - name: Production Build Verification
+        run: pnpm --dir frontend build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1

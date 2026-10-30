@@ -1,9 +1,9 @@
 # `PLAN.md` — Living Execution Roadmap & Task Tracker
 
 > **Current Session Handoff Notes:**
-> - **Active Phase:** Phase 6: Post-Audit Hardening, Security & Production Readiness
-> - **Completed in Current Turn:** Milestones 6.1, 6.2, 6.3 (Domain Invariants, RFC 7807 Catch-All & Zero-Ignore Typing), and 6.4 (UX & Recruiter Demo Polish) completed and verified across all Quality Gates (ruff check/format, mypy --strict, pytest Testcontainers, tsc, eslint, docker-compose config).
-> - **Next Immediate Action:** Ready to proceed with Milestone 6.5 (Edge-Case Test Expansion & Production Deployment Assets).
+> - **Active Phase:** Phase 6: Post-Audit Hardening, Security & Production Readiness (COMPLETE)
+> - **Completed in Current Turn:** Milestones 6.1 through 6.5 completed and verified across all Quality Gates (ruff check/format, mypy --strict, 27/27 pytest Testcontainers tests, tsc, eslint, next build, docker-compose config, GitHub Actions CI workflow).
+> - **Next Immediate Action:** Repository is 100% complete, hardened, and verified for production deployment and senior/staff engineering showcase.
 
 ---
 
@@ -257,7 +257,7 @@ pnpm --dir frontend build
   - Add 1-Click Persona Switcher controls to `PublicQuotePortal` with seamless persona hand-off.
   - Fix `"Valor Venta"` typo to `"Valor de Venda:"` in `dashboard/page.tsx`.
   - Eliminate N+1 S3 client instantiation in list endpoints.
-- [ ] **6.5: Edge-Case Test Expansion & Production Deployment Assets**
+- [x] **6.5: Edge-Case Test Expansion & Production Deployment Assets**
   - Add integration tests for S3 path validation, outbox relay S3 failure/retry, and cross-entity cancellation.
   - Add GitHub Actions CI workflow (`.github/workflows/ci.yml`).
 
